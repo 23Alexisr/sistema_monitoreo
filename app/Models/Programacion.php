@@ -14,17 +14,22 @@ class Programacion extends Model
 
     protected $fillable = [
         'obra_id',
-        'user_id',
-        'rol_obra',
-        'fecha_inicio',
-        'fecha_fin',
+        'empleado_id',
+        'fecha',
+        'hora',
+        'tipo',
+        'es_encargado',
+        'unidad',
+        'placa',
+        'orden',
     ];
 
     protected function casts(): array
     {
         return [
-            'fecha_inicio' => 'date',
-            'fecha_fin' => 'date',
+            'fecha' => 'date',
+            'hora' => 'datetime:H:i',
+            'es_encargado' => 'boolean',
         ];
     }
 
@@ -33,18 +38,53 @@ class Programacion extends Model
         return $this->belongsTo(Obra::class);
     }
 
-    public function user(): BelongsTo
+    public function empleado(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Empleado::class);
     }
 
-    public static function tieneSolapamiento(int $userId, string $fechaInicio, string $fechaFin, ?int $ignorarId = null): bool
+    public static function empleadoTieneOtraObraEseDia(int $empleadoId, string $fecha, ?int $obraId, ?int $ignorarId = null): bool
     {
         return static::query()
-            ->where('user_id', $userId)
+            ->where('empleado_id', $empleadoId)
+            ->whereDate('fecha', $fecha)
+            ->when($obraId, fn ($query) => $query->where('obra_id', '!=', $obraId))
             ->when($ignorarId, fn ($query) => $query->where('id', '!=', $ignorarId))
-            ->where('fecha_inicio', '<=', $fechaFin)
-            ->where('fecha_fin', '>=', $fechaInicio)
             ->exists();
+    }
+
+    public static function obraTieneEncargado(int $obraId, string $fecha, ?int $ignorarId = null): bool
+    {
+        return static::query()
+            ->where('obra_id', $obraId)
+            ->whereDate('fecha', $fecha)
+            ->where('es_encargado', true)
+            ->when($ignorarId, fn ($query) => $query->where('id', '!=', $ignorarId))
+            ->exists();
+    }
+
+    public static function advertenciaSinEncargado(int $obraId, string $fecha): ?string
+    {
+        $hayPersonal = static::query()
+            ->where('obra_id', $obraId)
+            ->whereDate('fecha', $fecha)
+            ->exists();
+
+        if (! $hayPersonal || static::obraTieneEncargado($obraId, $fecha)) {
+            return null;
+        }
+
+        return 'La obra no tiene ningún encargado asignado para el '.\Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y').'.';
+    }
+
+    public static function otrasAsignacionesEseDia(int $empleadoId, string $fecha): \Illuminate\Support\Collection
+    {
+        return static::query()
+            ->where('empleado_id', $empleadoId)
+            ->whereDate('fecha', $fecha)
+            ->with('obra')
+            ->orderBy('orden')
+            ->orderBy('hora')
+            ->get();
     }
 }

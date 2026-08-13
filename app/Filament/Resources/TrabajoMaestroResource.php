@@ -18,6 +18,16 @@ class TrabajoMaestroResource extends Resource
 
     protected static ?string $navigationLabel = 'Catálogo de Trabajos';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
+
+    public static function canViewAny(): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
+
     public static function form(Form $form): Form
     {
         return $form

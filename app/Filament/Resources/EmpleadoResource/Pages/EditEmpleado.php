@@ -16,4 +16,24 @@ class EditEmpleado extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        if ($this->record->user) {
+            $data['email'] = $this->record->user->email;
+            $data['rol'] = $this->record->user->roles->first()?->name;
+        }
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return EmpleadoResource::procesarCuentaAcceso($data, $this->record->user_id);
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

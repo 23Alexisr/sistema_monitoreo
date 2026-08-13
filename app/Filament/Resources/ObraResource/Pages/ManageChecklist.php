@@ -1,21 +1,52 @@
 <?php
 
-namespace App\Filament\Resources;
+namespace App\Filament\Resources\ObraResource\Pages;
 
-use App\Filament\Resources\ChecklistResource\Pages;
+use App\Filament\Resources\ObraResource;
 use App\Models\Checklist;
 use App\Models\TrabajoMaestro;
+use Filament\Actions;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
 
-class ChecklistResource extends Resource
+class ManageChecklist extends Page
 {
-    protected static ?string $model = Checklist::class;
+    use InteractsWithRecord;
 
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+    protected static string $resource = ObraResource::class;
+
+    protected static string $view = 'filament.resources.obra-resource.pages.manage-checklist';
+
+    protected static ?string $title = 'Checklist';
+
+    protected static ?string $navigationLabel = 'Checklist';
+
+    public ?array $data = [];
+
+    public ?Checklist $checklist = null;
+
+    public function mount(int | string $record): void
+    {
+        $this->record = $this->resolveRecord($record);
+
+        $this->authorizeAccess();
+
+        $ordenTrabajo = $this->record->ordenTrabajo;
+
+        if ($ordenTrabajo) {
+            $this->checklist = $ordenTrabajo->checklist ?? $ordenTrabajo->checklist()->create();
+        }
+
+        $this->form->fill();
+    }
+
+    protected function authorizeAccess(): void
+    {
+        abort_unless(static::getResource()::canEdit($this->record), 403);
+    }
 
     public static function catalogoOptions(): array
     {
@@ -68,17 +99,16 @@ class ChecklistResource extends Resource
         ];
     }
 
-    public static function form(Form $form): Form
+    public function form(Form $form): Form
     {
+        if (! $this->checklist) {
+            return $form->schema([]);
+        }
+
         return $form
+            ->model($this->checklist)
+            ->statePath('data')
             ->schema([
-                Forms\Components\Select::make('ot_id')
-                    ->label('Orden de Trabajo')
-                    ->relationship('ordenTrabajo', 'numero_ot')
-                    ->searchable()
-                    ->preload()
-                    ->required()
-                    ->unique(ignoreRecord: true),
                 Forms\Components\Repeater::make('items')
                     ->relationship('items')
                     ->label('Items del checklist')
@@ -101,51 +131,23 @@ class ChecklistResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('ordenTrabajo.numero_ot')
-                    ->label('OT')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('ordenTrabajo.obra.nombre')
-                    ->label('Obra')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('items_count')
-                    ->label('Items')
-                    ->counts('items'),
-                Tables\Columns\TextColumn::make('ordenTrabajo.obra.avance_pct')
-                    ->label('Avance')
-                    ->suffix('%'),
-            ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
-    }
-
-    public static function getRelations(): array
+    protected function getHeaderActions(): array
     {
         return [
-            //
+            Actions\Action::make('save')
+                ->label('Guardar')
+                ->action('save')
+                ->visible(fn () => $this->checklist !== null),
         ];
     }
 
-    public static function getPages(): array
+    public function save(): void
     {
-        return [
-            'index' => Pages\ListChecklists::route('/'),
-            'create' => Pages\CreateChecklist::route('/create'),
-            'edit' => Pages\EditChecklist::route('/{record}/edit'),
-        ];
+        $this->form->getState();
+
+        Notification::make()
+            ->success()
+            ->title('Checklist guardado')
+            ->send();
     }
 }

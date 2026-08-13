@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,7 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasName
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
@@ -25,7 +26,6 @@ class User extends Authenticatable implements FilamentUser
      * @var list<string>
      */
     protected $fillable = [
-        'name',
         'email',
         'password',
     ];
@@ -58,11 +58,6 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Empleado::class);
     }
 
-    public function programaciones(): HasMany
-    {
-        return $this->hasMany(Programacion::class);
-    }
-
     public function fotosSubidas(): HasMany
     {
         return $this->hasMany(Foto::class, 'subido_por');
@@ -70,6 +65,11 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(['administrador', 'supervisor', 'jefe_cuadrilla']);
+        return $this->hasAnyRole(['administrador', 'supervisor', 'jefe_cuadrilla', 'operario']);
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->empleado?->nombre_completo ?? $this->email;
     }
 }

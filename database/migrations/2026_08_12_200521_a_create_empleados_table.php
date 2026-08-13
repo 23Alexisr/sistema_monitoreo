@@ -13,9 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
             $table->string('dni')->unique();
             $table->string('foto')->nullable();
-            $table->string('cargo')->nullable();
             $table->string('especialidad')->nullable();
-            $table->date('fecha_ingreso')->nullable();
             $table->timestamps();
         });
     }

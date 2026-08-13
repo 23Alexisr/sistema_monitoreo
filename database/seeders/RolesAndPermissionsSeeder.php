@@ -45,5 +45,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $administrador = Role::findOrCreate('administrador');
         $administrador->syncPermissions(Permission::all());
+
+        Role::findOrCreate('operario');
     }
 }

@@ -19,15 +19,36 @@ class ClienteResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
+
+    public static function canViewAny(): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+                Forms\Components\FileUpload::make('logo')
+                    ->label('Logo')
+                    ->image()
+                    ->avatar()
+                    ->disk('public')
+                    ->directory('clientes')
+                    ->helperText('Opcional. Si no se sube, se muestran las iniciales del cliente.'),
                 Forms\Components\TextInput::make('nombre')
-                    ->required(),
+                    ->required()
+                    ->live(onBlur: true),
                 Forms\Components\TextInput::make('ruc')
                     ->required()
                     ->unique(ignoreRecord: true),
+                Forms\Components\ColorPicker::make('color_marca')
+                    ->label('Color de marca')
+                    ->helperText('Opcional. Se usa como color de cabecera en el dashboard de obras. Si no se define, se asigna uno automáticamente.'),
             ]);
     }
 
@@ -35,10 +56,19 @@ class ClienteResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('logo')
+                    ->label('')
+                    ->getStateUsing(fn (Cliente $record) => $record->avatarUrl())
+                    ->circular(),
                 Tables\Columns\TextColumn::make('nombre')
-                    ->searchable(),
+                    ->searchable()
+                    ->weight('bold'),
                 Tables\Columns\TextColumn::make('ruc')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('obras_count')
+                    ->label('Obras')
+                    ->counts('obras')
+                    ->badge(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

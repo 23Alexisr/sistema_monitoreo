@@ -7,8 +7,7 @@ use App\Models\Programacion;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProgramacionResource extends Resource
 {
@@ -17,6 +16,16 @@ class ProgramacionResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static ?string $navigationLabel = 'Programación de Personal';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
+
+    public static function canViewAny(): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
 
     public static function form(Form $form): Form
     {
@@ -27,87 +36,74 @@ class ProgramacionResource extends Resource
                     ->relationship('obra', 'nombre')
                     ->searchable()
                     ->preload()
-                    ->required(),
-                Forms\Components\Select::make('user_id')
+                    ->required()
+                    ->live(),
+                Forms\Components\Select::make('empleado_id')
                     ->label('Personal')
-                    ->relationship('user', 'name')
+                    ->relationship(
+                        'empleado',
+                        'nombre_completo',
+                        modifyQueryUsing: fn (Builder $query) => $query->where('estado', 'activo'),
+                    )
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->live(),
-                Forms\Components\Select::make('rol_obra')
-                    ->label('Rol en la obra')
-                    ->options([
-                        'pdr' => 'PDR',
-                        'supervisor' => 'Supervisor',
-                        'jefe_cuadrilla' => 'Jefe de cuadrilla',
-                    ])
-                    ->required(),
-                Forms\Components\DatePicker::make('fecha_inicio')
-                    ->required()
-                    ->live(),
-                Forms\Components\DatePicker::make('fecha_fin')
-                    ->required()
-                    ->afterOrEqual('fecha_inicio')
                     ->live()
                     ->rule(function (Forms\Get $get, ?Programacion $record) {
                         return function (string $attribute, $value, \Closure $fail) use ($get, $record) {
-                            $userId = $get('user_id');
-                            $fechaInicio = $get('fecha_inicio');
+                            $fecha = $get('fecha');
+                            $obraId = $get('obra_id');
 
-                            if (! $userId || ! $fechaInicio || ! $value) {
+                            if (! $value || ! $fecha) {
                                 return;
                             }
 
-                            if (Programacion::tieneSolapamiento($userId, $fechaInicio, $value, $record?->id)) {
-                                $fail('Este usuario ya tiene una asignación en otra obra que se solapa con estas fechas.');
+                            if (Programacion::empleadoTieneOtraObraEseDia($value, $fecha, $obraId, $record?->id)) {
+                                $fail('Este empleado ya está programado en otra obra ese día.');
                             }
                         };
-                    })
-                    ->validationMessages([
-                        'after_or_equal' => 'La fecha fin debe ser igual o posterior a la fecha de inicio.',
-                    ]),
-            ]);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('obra.nombre')
-                    ->label('Obra')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Personal')
-                    ->searchable()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('rol_obra')
-                    ->label('Rol')
-                    ->badge(),
-                Tables\Columns\TextColumn::make('fecha_inicio')
-                    ->date()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('fecha_fin')
-                    ->date()
-                    ->sortable(),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('rol_obra')
+                    }),
+                Forms\Components\DatePicker::make('fecha')
+                    ->required()
+                    ->live(),
+                Forms\Components\TimePicker::make('hora'),
+                Forms\Components\Select::make('tipo')
                     ->options([
-                        'pdr' => 'PDR',
-                        'supervisor' => 'Supervisor',
-                        'jefe_cuadrilla' => 'Jefe de cuadrilla',
-                    ]),
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                        'trabajo' => 'Trabajo',
+                        'viaje' => 'Viaje',
+                    ])
+                    ->default('trabajo')
+                    ->required(),
+                Forms\Components\Toggle::make('es_encargado')
+                    ->label('Encargado del día')
+                    ->live()
+                    ->rule(function (Forms\Get $get, ?Programacion $record) {
+                        return function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                            if (! $value) {
+                                return;
+                            }
+
+                            $obraId = $get('obra_id');
+                            $fecha = $get('fecha');
+
+                            if (! $obraId || ! $fecha) {
+                                return;
+                            }
+
+                            if (Programacion::obraTieneEncargado($obraId, $fecha, $record?->id)) {
+                                $fail('Ya hay un encargado asignado para esta obra en esta fecha.');
+                            }
+                        };
+                    }),
+                Forms\Components\TextInput::make('unidad')
+                    ->label('Unidad / vehículo'),
+                Forms\Components\TextInput::make('placa'),
+                Forms\Components\TextInput::make('orden')
+                    ->label('Orden de parada')
+                    ->helperText('Secuencia del itinerario del día para este empleado (1ra parada, 2da parada, etc).')
+                    ->numeric()
+                    ->integer()
+                    ->minValue(1),
             ]);
     }
 

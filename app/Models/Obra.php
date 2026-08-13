@@ -18,10 +18,29 @@ class Obra extends Model
         'codigo',
         'nombre',
         'ubicacion',
+        'link_maps',
         'estado',
         'fecha_inicio',
         'fecha_fin_estimada',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Obra $obra) {
+            if (filled($obra->codigo)) {
+                return;
+            }
+
+            $ultimoCodigo = static::query()
+                ->where('codigo', 'like', 'OBR-%')
+                ->orderByRaw('CAST(SUBSTRING(codigo, 5) AS UNSIGNED) DESC')
+                ->value('codigo');
+
+            $siguiente = $ultimoCodigo ? ((int) substr($ultimoCodigo, 4)) + 1 : 1;
+
+            $obra->codigo = 'OBR-'.str_pad((string) $siguiente, 7, '0', STR_PAD_LEFT);
+        });
+    }
 
     protected function casts(): array
     {
@@ -51,18 +70,33 @@ class Obra extends Model
         return $this->hasMany(Programacion::class);
     }
 
-    public function calcularAvance(): float
+    public function personalHoy(): \Illuminate\Support\Collection
+    {
+        return Empleado::query()
+            ->whereHas('programaciones', fn ($q) => $q
+                ->where('obra_id', $this->id)
+                ->whereDate('fecha', now()->toDateString()))
+            ->with('user.roles')
+            ->get();
+    }
+
+    protected function itemsParaAvance(): \Illuminate\Support\Collection
     {
         $checklist = $this->ordenTrabajo?->checklist;
 
         if (! $checklist) {
-            return 0.0;
+            return collect();
         }
 
-        $items = $checklist->items()
+        return $checklist->items()
             ->whereNull('parent_id')
             ->get()
             ->flatMap(fn (ChecklistItem $item) => $item->children->isNotEmpty() ? $item->children : collect([$item]));
+    }
+
+    public function calcularAvance(): float
+    {
+        $items = $this->itemsParaAvance();
 
         $diasTotales = $items->sum(fn (ChecklistItem $item) => $item->dias());
 
@@ -73,6 +107,16 @@ class Obra extends Model
         $diasCompletados = $items->where('completado', true)->sum(fn (ChecklistItem $item) => $item->dias());
 
         return round(($diasCompletados / $diasTotales) * 100, 2);
+    }
+
+    public function resumenChecklist(): array
+    {
+        $items = $this->itemsParaAvance();
+
+        return [
+            'listos' => $items->where('completado', true)->count(),
+            'pendientes' => $items->where('completado', false)->count(),
+        ];
     }
 
     protected function avancePct(): Attribute

@@ -16,6 +16,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -27,6 +28,16 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('CYF Obras')
+            ->brandLogo(fn () => new HtmlString(<<<'HTML'
+                <svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32">
+                    <rect width="32" height="32" rx="8" fill="#F59E0B" />
+                    <text x="16" y="16" dy=".35em" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#ffffff">CYF</text>
+                    <text x="40" y="16" dy=".35em" font-family="Arial, sans-serif" font-size="15" font-weight="600" fill="currentColor">Obras</text>
+                </svg>
+                HTML))
+            ->brandLogoHeight('2rem')
+            ->favicon(fn () => 'data:image/svg+xml,'.rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="8" fill="#F59E0B"/><text x="16" y="16" dy=".35em" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#fff">CYF</text></svg>'))
             ->colors([
                 'primary' => Color::Amber,
             ])
