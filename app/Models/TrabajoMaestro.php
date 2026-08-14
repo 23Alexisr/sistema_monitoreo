@@ -14,7 +14,7 @@ class TrabajoMaestro extends Model
     protected $table = 'trabajos_maestro';
 
     protected $fillable = [
-        'categoria',
+        'categoria_id',
         'cliente_id',
         'codigo',
         'descripcion',
@@ -40,5 +40,10 @@ class TrabajoMaestro extends Model
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
+    }
+
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(CategoriaTrabajo::class, 'categoria_id');
     }
 }

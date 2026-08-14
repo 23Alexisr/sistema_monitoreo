@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TrabajoMaestroResource\Pages;
+use App\Models\CategoriaTrabajo;
 use App\Models\TrabajoMaestro;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -32,14 +33,12 @@ class TrabajoMaestroResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('categoria')
-                    ->required()
-                    ->datalist([
-                        'Estructura',
-                        'Eléctrico',
-                        'Gráfica',
-                        'Limpieza',
-                    ]),
+                Forms\Components\Select::make('categoria_id')
+                    ->label('Categoría')
+                    ->relationship('categoria', 'nombre', fn ($query) => $query->orderBy('orden'))
+                    ->searchable()
+                    ->preload()
+                    ->required(),
                 Forms\Components\TextInput::make('codigo')
                     ->required()
                     ->unique(ignoreRecord: true),
@@ -66,7 +65,8 @@ class TrabajoMaestroResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('categoria')
+                Tables\Columns\TextColumn::make('categoria.nombre')
+                    ->label('Categoría')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('codigo')
@@ -83,8 +83,9 @@ class TrabajoMaestroResource extends Resource
                     ->boolean(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('categoria')
-                    ->options(fn () => TrabajoMaestro::query()->distinct()->pluck('categoria', 'categoria')->toArray()),
+                Tables\Filters\SelectFilter::make('categoria_id')
+                    ->label('Categoría')
+                    ->options(fn () => CategoriaTrabajo::query()->orderBy('orden')->pluck('nombre', 'id')->toArray()),
                 Tables\Filters\TernaryFilter::make('activo'),
             ])
             ->actions([

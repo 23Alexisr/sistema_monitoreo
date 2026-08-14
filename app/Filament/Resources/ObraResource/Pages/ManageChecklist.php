@@ -53,10 +53,10 @@ class ManageChecklist extends Page
         return TrabajoMaestro::query()
             ->where('activo', true)
             ->where(fn ($q) => $q->whereNull('cliente_id')->when($clienteId, fn ($q) => $q->orWhere('cliente_id', $clienteId)))
-            ->orderBy('categoria')
-            ->orderBy('descripcion')
+            ->with('categoria')
             ->get()
-            ->groupBy('categoria')
+            ->sortBy(fn ($item) => [$item->categoria?->orden ?? PHP_INT_MAX, $item->descripcion])
+            ->groupBy(fn ($item) => $item->categoria?->nombre ?? 'Sin categoría')
             ->map(fn ($grupo) => $grupo->pluck('descripcion', 'id'))
             ->toArray();
     }
