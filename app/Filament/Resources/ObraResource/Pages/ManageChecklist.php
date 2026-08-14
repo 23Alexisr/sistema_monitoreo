@@ -61,6 +61,20 @@ class ManageChecklist extends Page
             ->toArray();
     }
 
+    protected static function faltanFotos(Forms\Get $get): bool
+    {
+        return (bool) $get('requiere_foto') && (blank($get('fotosAntes')) || blank($get('fotosDespues')));
+    }
+
+    protected static function itemLabel(array $state): ?string
+    {
+        $check = ($state['completado'] ?? false) ? '✅' : '⭕';
+        $totalFotos = count($state['fotosAntes'] ?? []) + count($state['fotosDespues'] ?? []);
+        $camara = $totalFotos > 0 ? " 📷{$totalFotos}" : '';
+
+        return trim($check.' '.($state['descripcion'] ?? 'Nuevo item').$camara);
+    }
+
     protected function itemFields(): array
     {
         return [
@@ -94,8 +108,55 @@ class ManageChecklist extends Page
                 ->minValue(0.01)
                 ->required(),
             Forms\Components\Toggle::make('requiere_foto')
-                ->label('Requiere foto'),
-            Forms\Components\Toggle::make('completado'),
+                ->label('Requiere foto')
+                ->live(),
+            Forms\Components\Toggle::make('completado')
+                ->disabled(fn (Forms\Get $get) => static::faltanFotos($get))
+                ->helperText(fn (Forms\Get $get) => static::faltanFotos($get)
+                    ? 'Falta foto de antes/después para validar este trabajo.'
+                    : null),
+            Forms\Components\Repeater::make('fotosAntes')
+                ->relationship('fotos', modifyQueryUsing: fn ($query) => $query->where('momento', 'antes'))
+                ->label('Foto antes')
+                ->schema([
+                    Forms\Components\FileUpload::make('url')
+                        ->label('Foto')
+                        ->image()
+                        ->disk('public')
+                        ->directory('checklist-fotos')
+                        ->required(),
+                ])
+                ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [
+                    ...$data,
+                    'momento' => 'antes',
+                    'subido_por' => auth()->id(),
+                    'fecha_subida' => now(),
+                ])
+                ->addActionLabel('Agregar foto de antes')
+                ->live()
+                ->collapsible()
+                ->columnSpan(1),
+            Forms\Components\Repeater::make('fotosDespues')
+                ->relationship('fotos', modifyQueryUsing: fn ($query) => $query->where('momento', 'despues'))
+                ->label('Foto después')
+                ->schema([
+                    Forms\Components\FileUpload::make('url')
+                        ->label('Foto')
+                        ->image()
+                        ->disk('public')
+                        ->directory('checklist-fotos')
+                        ->required(),
+                ])
+                ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [
+                    ...$data,
+                    'momento' => 'despues',
+                    'subido_por' => auth()->id(),
+                    'fecha_subida' => now(),
+                ])
+                ->addActionLabel('Agregar foto de después')
+                ->live()
+                ->collapsible()
+                ->columnSpan(1),
             Forms\Components\Textarea::make('observaciones')
                 ->columnSpanFull(),
         ];
@@ -116,6 +177,7 @@ class ManageChecklist extends Page
                     ->label('Items del checklist')
                     ->orderColumn('orden')
                     ->addActionLabel('Agregar item')
+                    ->itemLabel(fn (array $state): ?string => static::itemLabel($state))
                     ->schema([
                         ...$this->itemFields(),
                         Forms\Components\Repeater::make('children')
@@ -123,6 +185,7 @@ class ManageChecklist extends Page
                             ->label('Sub-items')
                             ->orderColumn('orden')
                             ->addActionLabel('Agregar sub-item')
+                            ->itemLabel(fn (array $state): ?string => static::itemLabel($state))
                             ->schema($this->itemFields())
                             ->columnSpanFull()
                             ->collapsible(),

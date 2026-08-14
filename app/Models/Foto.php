@@ -12,6 +12,7 @@ class Foto extends Model
 
     protected $fillable = [
         'checklist_item_id',
+        'momento',
         'url',
         'fecha_subida',
         'subido_por',
