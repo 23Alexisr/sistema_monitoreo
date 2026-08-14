@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\TrabajoMaestroResource\Pages;
 use App\Models\CategoriaTrabajo;
+use App\Models\SubcategoriaTrabajo;
 use App\Models\TrabajoMaestro;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -42,7 +43,26 @@ class TrabajoMaestroResource extends Resource
                     ->relationship('categoria', 'nombre', fn ($query) => $query->orderBy('orden'))
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->live()
+                    ->required(fn (Forms\Get $get) => blank($get('subcategoria_id')))
+                    ->dehydrateStateUsing(fn ($state, Forms\Get $get) => filled($get('subcategoria_id')) ? null : $state)
+                    ->afterStateHydrated(function (Forms\Components\Select $component, ?TrabajoMaestro $record) {
+                        if ($record && blank($component->getState()) && $record->subcategoria_id) {
+                            $component->state($record->subcategoria?->categoria_id);
+                        }
+                    })
+                    ->afterStateUpdated(fn (Forms\Set $set) => $set('subcategoria_id', null)),
+                Forms\Components\Select::make('subcategoria_id')
+                    ->label('Subcategoría (opcional)')
+                    ->helperText('Deja en blanco si el trabajo cuelga directo de la categoría, sin nivel intermedio.')
+                    ->options(fn (Forms\Get $get) => SubcategoriaTrabajo::query()
+                        ->where('categoria_id', $get('categoria_id'))
+                        ->orderBy('orden')
+                        ->pluck('nombre', 'id')
+                        ->toArray())
+                    ->searchable()
+                    ->live()
+                    ->disabled(fn (Forms\Get $get) => blank($get('categoria_id'))),
                 Forms\Components\TextInput::make('codigo')
                     ->required()
                     ->unique(ignoreRecord: true),
@@ -71,6 +91,14 @@ class TrabajoMaestroResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('categoria.nombre')
                     ->label('Categoría')
+                    ->getStateUsing(fn (TrabajoMaestro $record) => $record->categoriaEfectiva()?->nombre)
+                    ->searchable(query: fn ($query, string $search) => $query
+                        ->whereHas('categoria', fn ($q) => $q->where('nombre', 'like', "%{$search}%"))
+                        ->orWhereHas('subcategoria.categoria', fn ($q) => $q->where('nombre', 'like', "%{$search}%")))
+                    ->sortable(false),
+                Tables\Columns\TextColumn::make('subcategoria.nombre')
+                    ->label('Subcategoría')
+                    ->placeholder('—')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('codigo')
@@ -89,7 +117,16 @@ class TrabajoMaestroResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('categoria_id')
                     ->label('Categoría')
-                    ->options(fn () => CategoriaTrabajo::query()->orderBy('orden')->pluck('nombre', 'id')->toArray()),
+                    ->options(fn () => CategoriaTrabajo::query()->orderBy('orden')->pluck('nombre', 'id')->toArray())
+                    ->query(function ($query, array $data) {
+                        if (blank($data['value'] ?? null)) {
+                            return $query;
+                        }
+
+                        return $query->where(fn ($q) => $q
+                            ->where('categoria_id', $data['value'])
+                            ->orWhereHas('subcategoria', fn ($q2) => $q2->where('categoria_id', $data['value'])));
+                    }),
                 Tables\Filters\TernaryFilter::make('activo'),
             ])
             ->actions([

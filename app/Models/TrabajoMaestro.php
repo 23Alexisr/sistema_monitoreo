@@ -15,6 +15,7 @@ class TrabajoMaestro extends Model
 
     protected $fillable = [
         'categoria_id',
+        'subcategoria_id',
         'cliente_id',
         'codigo',
         'descripcion',
@@ -45,5 +46,24 @@ class TrabajoMaestro extends Model
     public function categoria(): BelongsTo
     {
         return $this->belongsTo(CategoriaTrabajo::class, 'categoria_id');
+    }
+
+    public function subcategoria(): BelongsTo
+    {
+        return $this->belongsTo(SubcategoriaTrabajo::class, 'subcategoria_id');
+    }
+
+    public function categoriaEfectiva(): ?CategoriaTrabajo
+    {
+        return $this->subcategoria_id ? $this->subcategoria?->categoria : $this->categoria;
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (TrabajoMaestro $trabajo) {
+            if (filled($trabajo->categoria_id) === filled($trabajo->subcategoria_id)) {
+                throw new \RuntimeException('Un trabajo maestro debe tener exactamente una de las dos: categoría o subcategoría.');
+            }
+        });
     }
 }
