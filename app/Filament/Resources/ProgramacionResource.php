@@ -17,6 +17,10 @@ class ProgramacionResource extends Resource
 
     protected static ?string $navigationLabel = 'Programación de Personal';
 
+    protected static ?string $modelLabel = 'Programación';
+
+    protected static ?string $pluralModelLabel = 'Programaciones';
+
     public static function shouldRegisterNavigation(): bool
     {
         return ! auth()->user()?->hasRole('operario');

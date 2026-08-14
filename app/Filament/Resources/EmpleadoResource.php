@@ -17,6 +17,10 @@ class EmpleadoResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-identification';
 
+    protected static ?string $modelLabel = 'Empleado';
+
+    protected static ?string $pluralModelLabel = 'Empleados';
+
     public static function shouldRegisterNavigation(): bool
     {
         return ! auth()->user()?->hasRole('operario');
@@ -206,6 +210,13 @@ class EmpleadoResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->emptyStateIcon('heroicon-o-identification')
+            ->emptyStateHeading('Aún no hay empleados registrados')
+            ->emptyStateDescription('Registra al primer empleado para poder asignarlo a las obras.')
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Agregar empleado'),
             ]);
     }
 

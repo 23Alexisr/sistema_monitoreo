@@ -18,6 +18,10 @@ class CategoriaTrabajoResource extends Resource
 
     protected static ?string $navigationLabel = 'Categorías de Trabajo';
 
+    protected static ?string $modelLabel = 'Categoría de trabajo';
+
+    protected static ?string $pluralModelLabel = 'Categorías de trabajo';
+
     public static function shouldRegisterNavigation(): bool
     {
         return ! auth()->user()?->hasRole('operario');
@@ -65,6 +69,13 @@ class CategoriaTrabajoResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->emptyStateIcon('heroicon-o-rectangle-stack')
+            ->emptyStateHeading('Aún no hay categorías creadas')
+            ->emptyStateDescription('Crea categorías para organizar el catálogo de trabajos maestros.')
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Agregar categoría'),
             ]);
     }
 

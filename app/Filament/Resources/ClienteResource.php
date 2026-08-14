@@ -19,6 +19,10 @@ class ClienteResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    protected static ?string $modelLabel = 'Cliente';
+
+    protected static ?string $pluralModelLabel = 'Clientes';
+
     public static function shouldRegisterNavigation(): bool
     {
         return ! auth()->user()?->hasRole('operario');
@@ -89,6 +93,13 @@ class ClienteResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->emptyStateIcon('heroicon-o-building-office')
+            ->emptyStateHeading('Aún no hay clientes registrados')
+            ->emptyStateDescription('Registra tu primer cliente para empezar a asociar sus obras.')
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Agregar cliente'),
             ]);
     }
 

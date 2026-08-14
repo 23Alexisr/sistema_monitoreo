@@ -19,6 +19,10 @@ class TrabajoMaestroResource extends Resource
 
     protected static ?string $navigationLabel = 'Catálogo de Trabajos';
 
+    protected static ?string $modelLabel = 'Trabajo maestro';
+
+    protected static ?string $pluralModelLabel = 'Trabajos maestros';
+
     public static function shouldRegisterNavigation(): bool
     {
         return ! auth()->user()?->hasRole('operario');
@@ -93,6 +97,13 @@ class TrabajoMaestroResource extends Resource
             ])
             ->bulkActions([
                 //
+            ])
+            ->emptyStateIcon('heroicon-o-book-open')
+            ->emptyStateHeading('Aún no has agregado trabajos al catálogo')
+            ->emptyStateDescription('Los trabajos maestros son la base para armar los checklists de cada obra.')
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('Agregar primer trabajo'),
             ]);
     }
 

@@ -20,6 +20,10 @@ class ObraResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
+    protected static ?string $modelLabel = 'Obra';
+
+    protected static ?string $pluralModelLabel = 'Obras';
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
