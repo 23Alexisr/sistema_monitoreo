@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TrabajoMaestro extends Model
@@ -14,6 +15,7 @@ class TrabajoMaestro extends Model
 
     protected $fillable = [
         'categoria',
+        'cliente_id',
         'codigo',
         'descripcion',
         'dias_estimados',
@@ -33,5 +35,10 @@ class TrabajoMaestro extends Model
     public function checklistItems(): HasMany
     {
         return $this->hasMany(ChecklistItem::class, 'trabajo_maestro_id');
+    }
+
+    public function cliente(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class);
     }
 }

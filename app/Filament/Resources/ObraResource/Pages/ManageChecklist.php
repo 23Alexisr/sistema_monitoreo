@@ -48,10 +48,11 @@ class ManageChecklist extends Page
         abort_unless(static::getResource()::canEdit($this->record), 403);
     }
 
-    public static function catalogoOptions(): array
+    public static function catalogoOptions(?int $clienteId): array
     {
         return TrabajoMaestro::query()
             ->where('activo', true)
+            ->where(fn ($q) => $q->whereNull('cliente_id')->when($clienteId, fn ($q) => $q->orWhere('cliente_id', $clienteId)))
             ->orderBy('categoria')
             ->orderBy('descripcion')
             ->get()
@@ -60,13 +61,13 @@ class ManageChecklist extends Page
             ->toArray();
     }
 
-    protected static function itemFields(): array
+    protected function itemFields(): array
     {
         return [
             Forms\Components\Select::make('trabajo_maestro_id')
                 ->label('Trabajo del catálogo')
                 ->helperText('Deja en blanco para un item manual.')
-                ->options(fn () => static::catalogoOptions())
+                ->options(fn () => static::catalogoOptions($this->record->cliente_id))
                 ->searchable()
                 ->live()
                 ->afterStateUpdated(function ($state, Forms\Set $set) {
@@ -116,13 +117,13 @@ class ManageChecklist extends Page
                     ->orderColumn('orden')
                     ->addActionLabel('Agregar item')
                     ->schema([
-                        ...static::itemFields(),
+                        ...$this->itemFields(),
                         Forms\Components\Repeater::make('children')
                             ->relationship('children')
                             ->label('Sub-items')
                             ->orderColumn('orden')
                             ->addActionLabel('Agregar sub-item')
-                            ->schema(static::itemFields())
+                            ->schema($this->itemFields())
                             ->columnSpanFull()
                             ->collapsible(),
                     ])

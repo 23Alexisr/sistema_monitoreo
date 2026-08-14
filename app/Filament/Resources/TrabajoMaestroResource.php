@@ -43,6 +43,11 @@ class TrabajoMaestroResource extends Resource
                 Forms\Components\TextInput::make('codigo')
                     ->required()
                     ->unique(ignoreRecord: true),
+                Forms\Components\Select::make('cliente_id')
+                    ->label('Cliente específico (opcional, dejar vacío si aplica a todos)')
+                    ->relationship('cliente', 'nombre')
+                    ->searchable()
+                    ->preload(),
                 Forms\Components\TextInput::make('descripcion')
                     ->required()
                     ->columnSpanFull(),
