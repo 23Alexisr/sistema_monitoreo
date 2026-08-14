@@ -48,7 +48,8 @@ class TrabajoMaestroResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('dias_estimados')
                     ->numeric()
-                    ->minValue(1)
+                    ->step(0.01)
+                    ->minValue(0.01)
                     ->required(),
                 Forms\Components\Toggle::make('requiere_foto'),
                 Forms\Components\Toggle::make('activo')

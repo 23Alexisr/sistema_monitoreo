@@ -26,6 +26,7 @@ class ChecklistItem extends Model
     protected function casts(): array
     {
         return [
+            'dias_estimados_override' => 'decimal:2',
             'completado' => 'boolean',
             'requiere_foto' => 'boolean',
         ];
@@ -74,8 +75,8 @@ class ChecklistItem extends Model
         return $this->hasMany(Foto::class);
     }
 
-    public function dias(): int
+    public function dias(): float
     {
-        return $this->dias_estimados_override ?? $this->trabajoMaestro?->dias_estimados ?? 0;
+        return (float) ($this->dias_estimados_override ?? $this->trabajoMaestro?->dias_estimados ?? 0);
     }
 }

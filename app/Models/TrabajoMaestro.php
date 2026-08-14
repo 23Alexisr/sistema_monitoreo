@@ -24,6 +24,7 @@ class TrabajoMaestro extends Model
     protected function casts(): array
     {
         return [
+            'dias_estimados' => 'decimal:2',
             'requiere_foto' => 'boolean',
             'activo' => 'boolean',
         ];

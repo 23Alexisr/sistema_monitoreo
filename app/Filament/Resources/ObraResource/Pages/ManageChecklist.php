@@ -89,7 +89,8 @@ class ManageChecklist extends Page
             Forms\Components\TextInput::make('dias_estimados_override')
                 ->label('Días estimados')
                 ->numeric()
-                ->minValue(1)
+                ->step(0.01)
+                ->minValue(0.01)
                 ->required(),
             Forms\Components\Toggle::make('requiere_foto')
                 ->label('Requiere foto'),
