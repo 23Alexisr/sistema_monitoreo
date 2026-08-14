@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PrefijoGenerator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +24,10 @@ class CategoriaTrabajo extends Model
         static::creating(function (CategoriaTrabajo $categoria) {
             if (blank($categoria->orden)) {
                 $categoria->orden = static::max('orden') + 1;
+            }
+
+            if (blank($categoria->prefijo)) {
+                $categoria->prefijo = PrefijoGenerator::generar($categoria->nombre);
             }
         });
 

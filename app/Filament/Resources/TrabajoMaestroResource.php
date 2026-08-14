@@ -64,8 +64,10 @@ class TrabajoMaestroResource extends Resource
                     ->live()
                     ->disabled(fn (Forms\Get $get) => blank($get('categoria_id'))),
                 Forms\Components\TextInput::make('codigo')
-                    ->required()
-                    ->unique(ignoreRecord: true),
+                    ->label('Código')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->placeholder('Se generará automáticamente'),
                 Forms\Components\Select::make('cliente_id')
                     ->label('Cliente específico (opcional, dejar vacío si aplica a todos)')
                     ->relationship('cliente', 'nombre')

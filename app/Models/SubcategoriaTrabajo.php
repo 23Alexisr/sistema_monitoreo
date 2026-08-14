@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PrefijoGenerator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -24,6 +25,10 @@ class SubcategoriaTrabajo extends Model
         static::creating(function (SubcategoriaTrabajo $subcategoria) {
             if (blank($subcategoria->orden)) {
                 $subcategoria->orden = static::where('categoria_id', $subcategoria->categoria_id)->max('orden') + 1;
+            }
+
+            if (blank($subcategoria->prefijo)) {
+                $subcategoria->prefijo = PrefijoGenerator::generar($subcategoria->nombre);
             }
         });
 

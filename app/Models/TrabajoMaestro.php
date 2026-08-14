@@ -65,5 +65,31 @@ class TrabajoMaestro extends Model
                 throw new \RuntimeException('Un trabajo maestro debe tener exactamente una de las dos: categoría o subcategoría.');
             }
         });
+
+        static::creating(function (TrabajoMaestro $trabajo) {
+            if (blank($trabajo->codigo)) {
+                $trabajo->codigo = static::generarCodigo($trabajo);
+            }
+        });
+    }
+
+    protected static function generarCodigo(TrabajoMaestro $trabajo): string
+    {
+        $prefijo = $trabajo->subcategoria_id
+            ? $trabajo->subcategoria?->prefijo
+            : $trabajo->categoria?->prefijo;
+
+        $prefijo ??= 'GEN';
+
+        $offset = mb_strlen($prefijo) + 2;
+
+        $ultimoCodigo = static::query()
+            ->where('codigo', 'like', "{$prefijo}-%")
+            ->orderByRaw('CAST(SUBSTRING(codigo, ?) AS UNSIGNED) DESC', [$offset])
+            ->value('codigo');
+
+        $siguiente = $ultimoCodigo ? ((int) substr($ultimoCodigo, mb_strlen($prefijo) + 1)) + 1 : 1;
+
+        return $prefijo.'-'.str_pad((string) $siguiente, 3, '0', STR_PAD_LEFT);
     }
 }
