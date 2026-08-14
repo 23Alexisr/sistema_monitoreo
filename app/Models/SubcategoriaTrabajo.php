@@ -19,6 +19,21 @@ class SubcategoriaTrabajo extends Model
         'orden',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (SubcategoriaTrabajo $subcategoria) {
+            if (blank($subcategoria->orden)) {
+                $subcategoria->orden = static::where('categoria_id', $subcategoria->categoria_id)->max('orden') + 1;
+            }
+        });
+
+        static::saving(function (SubcategoriaTrabajo $subcategoria) {
+            if ($subcategoria->orden !== null && $subcategoria->orden < 1) {
+                throw new \RuntimeException('El campo orden debe ser un entero mayor a 0.');
+            }
+        });
+    }
+
     public function categoria(): BelongsTo
     {
         return $this->belongsTo(CategoriaTrabajo::class, 'categoria_id');

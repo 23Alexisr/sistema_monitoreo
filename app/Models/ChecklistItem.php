@@ -47,7 +47,24 @@ class ChecklistItem extends Model
                     }
                 }
             }
+
+            if (blank($item->orden)) {
+                $item->orden = static::hermanosDelGrupo($item->checklist_id, $item->parent_id)->max('orden') + 1;
+            }
         });
+
+        static::saving(function (ChecklistItem $item) {
+            if ($item->orden !== null && $item->orden < 1) {
+                throw new \RuntimeException('El campo orden debe ser un entero mayor a 0.');
+            }
+        });
+    }
+
+    protected static function hermanosDelGrupo(int $checklistId, ?int $parentId): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = static::where('checklist_id', $checklistId);
+
+        return $parentId ? $query->where('parent_id', $parentId) : $query->whereNull('parent_id');
     }
 
     public function checklist(): BelongsTo

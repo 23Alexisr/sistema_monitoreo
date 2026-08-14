@@ -18,6 +18,21 @@ class CategoriaTrabajo extends Model
         'orden',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (CategoriaTrabajo $categoria) {
+            if (blank($categoria->orden)) {
+                $categoria->orden = static::max('orden') + 1;
+            }
+        });
+
+        static::saving(function (CategoriaTrabajo $categoria) {
+            if ($categoria->orden !== null && $categoria->orden < 1) {
+                throw new \RuntimeException('El campo orden debe ser un entero mayor a 0.');
+            }
+        });
+    }
+
     public function trabajosMaestro(): HasMany
     {
         return $this->hasMany(TrabajoMaestro::class, 'categoria_id');

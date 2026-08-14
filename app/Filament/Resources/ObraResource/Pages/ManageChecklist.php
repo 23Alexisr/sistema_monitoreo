@@ -75,6 +75,38 @@ class ManageChecklist extends Page
         return trim($check.' '.($state['descripcion'] ?? 'Nuevo item').$camara);
     }
 
+    protected static function ordenMaximoHermanos(Forms\Get $get, mixed $excluirValor = null): int
+    {
+        $hermanos = collect($get('../') ?? []);
+
+        if ($excluirValor !== null) {
+            $hermanos = $hermanos->reject(fn ($item) => (int) ($item['orden'] ?? -1) === (int) $excluirValor);
+        }
+
+        return (int) ($hermanos->max('orden') ?? 0);
+    }
+
+    protected static function ordenSugerido(Forms\Get $get): int
+    {
+        return \App\Support\OrdenValidator::sugerido(static::ordenMaximoHermanos($get));
+    }
+
+    protected static function ordenAdvertencia(Forms\Get $get, ?int $orden): ?string
+    {
+        if (blank($orden) || $orden < 1) {
+            return null;
+        }
+
+        $ownDescripcion = $get('descripcion');
+
+        $duplicado = collect($get('../') ?? [])->first(fn ($item) => (int) ($item['orden'] ?? -1) === (int) $orden
+            && ($item['descripcion'] ?? null) !== $ownDescripcion);
+
+        $maxOtros = static::ordenMaximoHermanos($get, $orden);
+
+        return \App\Support\OrdenValidator::advertencia($orden, $maxOtros, $duplicado['descripcion'] ?? null);
+    }
+
     protected function itemFields(): array
     {
         return [
@@ -101,6 +133,17 @@ class ManageChecklist extends Page
             Forms\Components\TextInput::make('descripcion')
                 ->required()
                 ->columnSpan(2),
+            Forms\Components\TextInput::make('orden')
+                ->label('Orden')
+                ->numeric()
+                ->integer()
+                ->minValue(1)
+                ->required()
+                ->live(onBlur: true)
+                ->default(fn (Forms\Get $get) => static::ordenSugerido($get))
+                ->hint(fn (Forms\Get $get, $state) => static::ordenAdvertencia($get, filled($state) ? (int) $state : null))
+                ->hintColor('warning')
+                ->hintIcon(fn (Forms\Get $get, $state) => static::ordenAdvertencia($get, filled($state) ? (int) $state : null) ? 'heroicon-o-exclamation-triangle' : null),
             Forms\Components\TextInput::make('dias_estimados_override')
                 ->label('Días estimados')
                 ->numeric()
@@ -175,7 +218,7 @@ class ManageChecklist extends Page
                 Forms\Components\Repeater::make('items')
                     ->relationship('items')
                     ->label('Items del checklist')
-                    ->orderColumn('orden')
+                    ->reorderable(false)
                     ->addActionLabel('Agregar item')
                     ->itemLabel(fn (array $state): ?string => static::itemLabel($state))
                     ->schema([
@@ -183,7 +226,7 @@ class ManageChecklist extends Page
                         Forms\Components\Repeater::make('children')
                             ->relationship('children')
                             ->label('Sub-items')
-                            ->orderColumn('orden')
+                            ->reorderable(false)
                             ->addActionLabel('Agregar sub-item')
                             ->itemLabel(fn (array $state): ?string => static::itemLabel($state))
                             ->schema($this->itemFields())

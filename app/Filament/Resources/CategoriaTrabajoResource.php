@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CategoriaTrabajoResource\Pages;
 use App\Models\CategoriaTrabajo;
+use App\Support\OrdenValidator;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -41,8 +42,36 @@ class CategoriaTrabajoResource extends Resource
                     ->unique(ignoreRecord: true),
                 Forms\Components\ColorPicker::make('color'),
                 Forms\Components\TextInput::make('orden')
-                    ->numeric(),
+                    ->numeric()
+                    ->integer()
+                    ->minValue(1)
+                    ->required()
+                    ->live(onBlur: true)
+                    ->default(fn () => OrdenValidator::sugerido(CategoriaTrabajo::max('orden')))
+                    ->hint(fn (?CategoriaTrabajo $record, $state) => static::ordenAdvertencia($record, $state))
+                    ->hintColor('warning')
+                    ->hintIcon(fn (?CategoriaTrabajo $record, $state) => static::ordenAdvertencia($record, $state) ? 'heroicon-o-exclamation-triangle' : null),
             ]);
+    }
+
+    protected static function ordenAdvertencia(?CategoriaTrabajo $record, $state): ?string
+    {
+        if (blank($state) || (int) $state < 1) {
+            return null;
+        }
+
+        $orden = (int) $state;
+
+        $query = CategoriaTrabajo::query();
+
+        if ($record) {
+            $query->whereKeyNot($record->getKey());
+        }
+
+        $duplicado = (clone $query)->where('orden', $orden)->first();
+        $maxOtros = (clone $query)->max('orden');
+
+        return OrdenValidator::advertencia($orden, $maxOtros, $duplicado?->nombre);
     }
 
     public static function table(Table $table): Table
