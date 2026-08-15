@@ -9,7 +9,7 @@ use App\Models\Foto;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\WithFileUploads;
 
@@ -56,12 +56,42 @@ class EjecutarChecklist extends Page
         return $this->record->ordenTrabajo?->checklist;
     }
 
-    public function getItems(): Collection
+    /**
+     * Todos los items del checklist (padres e hijos por igual, sin excluir
+     * ninguno vía relaciones anidadas) agrupados por la categoría efectiva
+     * de su trabajo_maestro (directa o vía subcategoría). Los items
+     * manuales (sin trabajo_maestro_id) caen en la sección "Otros".
+     */
+    public function getSeccionesAgrupadas(): Collection
     {
-        return $this->getChecklist()
-            ?->items()
-            ->with(['children.fotos', 'fotos'])
-            ->get() ?? new Collection();
+        $checklist = $this->getChecklist();
+
+        if (! $checklist) {
+            return new Collection();
+        }
+
+        $items = ChecklistItem::query()
+            ->where('checklist_id', $checklist->id)
+            ->with(['fotos', 'trabajoMaestro.categoria', 'trabajoMaestro.subcategoria.categoria'])
+            ->get();
+
+        return $items
+            ->groupBy(fn (ChecklistItem $item) => $item->categoriaEfectiva()?->id ?? 'otros')
+            ->map(function (Collection $grupo) {
+                $categoria = $grupo->first()->categoriaEfectiva();
+
+                return [
+                    'nombre' => $categoria?->nombre ?? 'Otros / Items manuales',
+                    'color' => $categoria?->color,
+                    'orden' => $categoria?->orden ?? PHP_INT_MAX,
+                    'pendientes' => $grupo->where('completado', false)->sortBy('orden')->values(),
+                    'completados' => $grupo->where('completado', true)->sortBy('orden')->values(),
+                    'total' => $grupo->count(),
+                    'completadosCount' => $grupo->where('completado', true)->count(),
+                ];
+            })
+            ->sortBy('orden')
+            ->values();
     }
 
     public function getItemSeleccionado(): ?ChecklistItem

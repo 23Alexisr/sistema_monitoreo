@@ -97,6 +97,11 @@ class ChecklistItem extends Model
         return (float) ($this->dias_estimados_override ?? $this->trabajoMaestro?->dias_estimados ?? 0);
     }
 
+    public function categoriaEfectiva(): ?CategoriaTrabajo
+    {
+        return $this->trabajoMaestro?->categoriaEfectiva();
+    }
+
     public function tieneFotoAntes(): bool
     {
         return $this->fotos()->where('momento', 'antes')->exists();

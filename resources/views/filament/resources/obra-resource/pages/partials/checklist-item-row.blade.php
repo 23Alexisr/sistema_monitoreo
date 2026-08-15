@@ -1,12 +1,11 @@
 @php
     $totalFotos = $item->fotos->count();
-    $indent = 14 * $nivel;
 @endphp
 
 <button
     type="button"
     wire:click="seleccionarItem({{ $item->id }})"
-    style="cursor: pointer; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid #e5e7eb; background: #ffffff; border-radius: 12px; padding: 12px 14px; margin-left: {{ $indent }}px; width: calc(100% - {{ $indent }}px);"
+    style="cursor: pointer; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid #e5e7eb; background: #ffffff; border-radius: 12px; padding: 12px 14px;"
 >
     @if ($item->completado)
         <x-heroicon-o-check-circle style="width: 26px; height: 26px; flex-shrink: 0; color: #10B981;" />
@@ -27,9 +26,3 @@
         </span>
     @endif
 </button>
-
-@if ($item->children->isNotEmpty())
-    @foreach ($item->children as $hijo)
-        @include('filament.resources.obra-resource.pages.partials.checklist-item-row', ['item' => $hijo, 'nivel' => $nivel + 1])
-    @endforeach
-@endif

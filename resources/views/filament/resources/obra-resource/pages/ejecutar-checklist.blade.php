@@ -3,7 +3,9 @@
 
     $itemSeleccionado = $this->getItemSeleccionado();
     $checklist = $this->getChecklist();
-    $items = $this->getItems();
+    $secciones = $this->getSeccionesAgrupadas();
+    $totalGeneral = $secciones->sum('total');
+    $completadosGeneral = $secciones->sum('completadosCount');
 @endphp
 
 <x-filament-panels::page>
@@ -110,9 +112,42 @@
         </div>
     @else
         {{-- Vista lista --}}
-        <div style="max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px;">
-            @forelse ($items as $item)
-                @include('filament.resources.obra-resource.pages.partials.checklist-item-row', ['item' => $item, 'nivel' => 0])
+        <div style="max-width: 480px; margin: 0 auto;">
+            @if ($totalGeneral > 0)
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 12px 14px; border-radius: 12px; background: #F9FAFB; border: 1px solid #e5e7eb;">
+                    <span style="font-size: 13px; font-weight: 700; color: #374151;">Avance del checklist</span>
+                    <span style="font-size: 13px; font-weight: 700; color: {{ $completadosGeneral === $totalGeneral ? '#059669' : '#374151' }};">
+                        {{ $completadosGeneral }} de {{ $totalGeneral }} completados
+                    </span>
+                </div>
+            @endif
+
+            @forelse ($secciones as $seccion)
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-left: 2px;">
+                        <span style="width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; background: {{ $seccion['color'] ?? '#9CA3AF' }};"></span>
+                        <span style="font-size: 13.5px; font-weight: 700; color: #111827;">{{ $seccion['nombre'] }}</span>
+                        <span style="font-size: 12px; color: #6b7280;">
+                            ({{ $seccion['completadosCount'] }} de {{ $seccion['total'] }} completados)
+                        </span>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        @foreach ($seccion['pendientes'] as $item)
+                            @include('filament.resources.obra-resource.pages.partials.checklist-item-row', ['item' => $item])
+                        @endforeach
+
+                        @if ($seccion['completados']->isNotEmpty())
+                            <div style="display: flex; align-items: center; gap: 8px; margin: {{ $seccion['pendientes']->isNotEmpty() ? '8px' : '0' }} 0 2px; opacity: 0.6;">
+                                <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;">Completados</span>
+                            </div>
+
+                            @foreach ($seccion['completados'] as $item)
+                                @include('filament.resources.obra-resource.pages.partials.checklist-item-row', ['item' => $item])
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
             @empty
                 <div style="border-radius: 14px; border: 1px dashed #d1d5db; padding: 48px 24px; text-align: center; font-size: 13px; color: #6b7280;">
                     Este checklist todavía no tiene items.
