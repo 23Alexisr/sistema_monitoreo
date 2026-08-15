@@ -157,6 +157,7 @@ class ObraResource extends Resource
         return $page->generateNavigationItems([
             Pages\EditObra::class,
             Pages\ManageChecklist::class,
+            Pages\EjecutarChecklist::class,
         ]);
     }
 
@@ -167,6 +168,7 @@ class ObraResource extends Resource
             'create' => Pages\CreateObra::route('/create'),
             'edit' => Pages\EditObra::route('/{record}/edit'),
             'checklist' => Pages\ManageChecklist::route('/{record}/checklist'),
+            'checklist-ejecutar' => Pages\EjecutarChecklist::route('/{record}/checklist-ejecutar'),
         ];
     }
 }

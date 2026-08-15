@@ -25,6 +25,14 @@ class Foto extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        $sincronizar = fn (Foto $foto) => $foto->checklistItem?->sincronizarCompletadoAutomatico();
+
+        static::created($sincronizar);
+        static::deleted($sincronizar);
+    }
+
     public function checklistItem(): BelongsTo
     {
         return $this->belongsTo(ChecklistItem::class);

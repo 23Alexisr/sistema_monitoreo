@@ -20,9 +20,9 @@ class ManageChecklist extends Page
 
     protected static string $view = 'filament.resources.obra-resource.pages.manage-checklist';
 
-    protected static ?string $title = 'Checklist';
+    protected static ?string $title = 'Armar checklist';
 
-    protected static ?string $navigationLabel = 'Checklist';
+    protected static ?string $navigationLabel = 'Armar checklist';
 
     public ?array $data = [];
 
@@ -43,9 +43,14 @@ class ManageChecklist extends Page
         $this->form->fill();
     }
 
+    public static function canAccess(array $parameters = []): bool
+    {
+        return auth()->user()?->hasAnyRole(['administrador', 'jefe_cuadrilla']) ?? false;
+    }
+
     protected function authorizeAccess(): void
     {
-        abort_unless(static::getResource()::canEdit($this->record), 403);
+        abort_unless(static::canAccess(['record' => $this->record]), 403);
     }
 
     public static function catalogoOptions(?int $clienteId): array
@@ -61,18 +66,9 @@ class ManageChecklist extends Page
             ->toArray();
     }
 
-    protected static function faltanFotos(Forms\Get $get): bool
-    {
-        return (bool) $get('requiere_foto') && (blank($get('fotosAntes')) || blank($get('fotosDespues')));
-    }
-
     protected static function itemLabel(array $state): ?string
     {
-        $check = ($state['completado'] ?? false) ? '✅' : '⭕';
-        $totalFotos = count($state['fotosAntes'] ?? []) + count($state['fotosDespues'] ?? []);
-        $camara = $totalFotos > 0 ? " 📷{$totalFotos}" : '';
-
-        return trim($check.' '.($state['descripcion'] ?? 'Nuevo item').$camara);
+        return $state['descripcion'] ?? 'Nuevo item';
     }
 
     protected static function ordenMaximoHermanos(Forms\Get $get, mixed $excluirValor = null): int
@@ -151,55 +147,7 @@ class ManageChecklist extends Page
                 ->minValue(0.01)
                 ->required(),
             Forms\Components\Toggle::make('requiere_foto')
-                ->label('Requiere foto')
-                ->live(),
-            Forms\Components\Toggle::make('completado')
-                ->disabled(fn (Forms\Get $get) => static::faltanFotos($get))
-                ->helperText(fn (Forms\Get $get) => static::faltanFotos($get)
-                    ? 'Falta foto de antes/después para validar este trabajo.'
-                    : null),
-            Forms\Components\Repeater::make('fotosAntes')
-                ->relationship('fotos', modifyQueryUsing: fn ($query) => $query->where('momento', 'antes'))
-                ->label('Foto antes')
-                ->schema([
-                    Forms\Components\FileUpload::make('url')
-                        ->label('Foto')
-                        ->image()
-                        ->disk('public')
-                        ->directory('checklist-fotos')
-                        ->required(),
-                ])
-                ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [
-                    ...$data,
-                    'momento' => 'antes',
-                    'subido_por' => auth()->id(),
-                    'fecha_subida' => now(),
-                ])
-                ->addActionLabel('Agregar foto de antes')
-                ->live()
-                ->collapsible()
-                ->columnSpan(1),
-            Forms\Components\Repeater::make('fotosDespues')
-                ->relationship('fotos', modifyQueryUsing: fn ($query) => $query->where('momento', 'despues'))
-                ->label('Foto después')
-                ->schema([
-                    Forms\Components\FileUpload::make('url')
-                        ->label('Foto')
-                        ->image()
-                        ->disk('public')
-                        ->directory('checklist-fotos')
-                        ->required(),
-                ])
-                ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [
-                    ...$data,
-                    'momento' => 'despues',
-                    'subido_por' => auth()->id(),
-                    'fecha_subida' => now(),
-                ])
-                ->addActionLabel('Agregar foto de después')
-                ->live()
-                ->collapsible()
-                ->columnSpan(1),
+                ->label('Requiere foto'),
             Forms\Components\Textarea::make('observaciones')
                 ->columnSpanFull(),
         ];

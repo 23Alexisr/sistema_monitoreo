@@ -96,4 +96,27 @@ class ChecklistItem extends Model
     {
         return (float) ($this->dias_estimados_override ?? $this->trabajoMaestro?->dias_estimados ?? 0);
     }
+
+    public function tieneFotoAntes(): bool
+    {
+        return $this->fotos()->where('momento', 'antes')->exists();
+    }
+
+    public function tieneFotoDespues(): bool
+    {
+        return $this->fotos()->where('momento', 'despues')->exists();
+    }
+
+    public function sincronizarCompletadoAutomatico(): void
+    {
+        if (! $this->requiere_foto) {
+            return;
+        }
+
+        $nuevoEstado = $this->tieneFotoAntes() && $this->tieneFotoDespues();
+
+        if ($nuevoEstado !== $this->completado) {
+            $this->update(['completado' => $nuevoEstado]);
+        }
+    }
 }
