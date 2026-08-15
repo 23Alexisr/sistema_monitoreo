@@ -21,6 +21,10 @@ class EmpleadoResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Empleados';
 
+    protected static ?string $navigationGroup = 'Administración';
+
+    protected static ?int $navigationSort = 2;
+
     public static function shouldRegisterNavigation(): bool
     {
         return ! auth()->user()?->hasRole('operario');

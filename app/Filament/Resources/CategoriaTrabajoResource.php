@@ -19,6 +19,10 @@ class CategoriaTrabajoResource extends Resource
 
     protected static ?string $navigationLabel = 'Categorías de Trabajo';
 
+    protected static ?string $navigationGroup = 'Catálogo';
+
+    protected static ?int $navigationSort = 1;
+
     protected static ?string $modelLabel = 'Categoría de trabajo';
 
     protected static ?string $pluralModelLabel = 'Categorías de trabajo';

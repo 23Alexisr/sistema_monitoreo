@@ -20,6 +20,10 @@ class TrabajoMaestroResource extends Resource
 
     protected static ?string $navigationLabel = 'Catálogo de Trabajos';
 
+    protected static ?string $navigationGroup = 'Catálogo';
+
+    protected static ?int $navigationSort = 3;
+
     protected static ?string $modelLabel = 'Trabajo maestro';
 
     protected static ?string $pluralModelLabel = 'Trabajos maestros';

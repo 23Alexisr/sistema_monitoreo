@@ -6,6 +6,7 @@
     $secciones = $this->getSeccionesAgrupadas();
     $totalGeneral = $secciones->sum('total');
     $completadosGeneral = $secciones->sum('completadosCount');
+    $fotoAmpliada = $this->getFotoAmpliada();
 @endphp
 
 <x-filament-panels::page>
@@ -50,11 +51,17 @@
                                 @if ($fotosMomento->isNotEmpty())
                                     <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px;">
                                         @foreach ($fotosMomento as $foto)
-                                            <img
-                                                src="{{ Storage::disk('public')->url($foto->url) }}"
-                                                alt="{{ $etiqueta }}"
-                                                style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb;"
-                                            />
+                                            <button
+                                                type="button"
+                                                wire:click="ampliarFoto({{ $foto->id }})"
+                                                style="cursor: pointer; padding: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; line-height: 0;"
+                                            >
+                                                <img
+                                                    src="{{ Storage::disk('public')->url($foto->url) }}"
+                                                    alt="{{ $etiqueta }}"
+                                                    style="width: 56px; height: 56px; object-fit: cover; display: block;"
+                                                />
+                                            </button>
                                         @endforeach
                                     </div>
                                 @endif
@@ -153,6 +160,47 @@
                     Este checklist todavía no tiene items.
                 </div>
             @endforelse
+        </div>
+    @endif
+
+    @if ($fotoAmpliada)
+        <div
+            wire:click="cerrarFotoAmpliada"
+            style="position: fixed; inset: 0; z-index: 1000; background: rgba(17,24,39,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px;"
+        >
+            <img
+                src="{{ Storage::disk('public')->url($fotoAmpliada->url) }}"
+                alt="Foto ampliada"
+                style="max-width: 100%; max-height: 75vh; border-radius: 10px; object-fit: contain;"
+            />
+
+            <div style="display: flex; align-items: center; gap: 10px;" wire:click.stop>
+                <a
+                    href="{{ route('fotos.descargar', $fotoAmpliada) }}"
+                    style="display: flex; align-items: center; gap: 6px; text-decoration: none; background: #F59E0B; color: #ffffff; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700;"
+                >
+                    <x-heroicon-o-arrow-down-tray style="width: 16px; height: 16px;" />
+                    Descargar
+                </a>
+
+                <button
+                    type="button"
+                    wire:click="eliminarFotoAmpliada"
+                    wire:confirm="¿Eliminar esta foto? No se puede deshacer."
+                    style="cursor: pointer; display: flex; align-items: center; gap: 6px; background: #DC2626; color: #ffffff; border: none; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700;"
+                >
+                    <x-heroicon-o-trash style="width: 16px; height: 16px;" />
+                    Eliminar
+                </button>
+
+                <button
+                    type="button"
+                    wire:click="cerrarFotoAmpliada"
+                    style="cursor: pointer; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.15); color: #ffffff; border: none; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700;"
+                >
+                    Cerrar
+                </button>
+            </div>
         </div>
     @endif
 </x-filament-panels::page>

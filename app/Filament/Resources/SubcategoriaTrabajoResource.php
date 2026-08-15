@@ -19,6 +19,10 @@ class SubcategoriaTrabajoResource extends Resource
 
     protected static ?string $navigationLabel = 'Subcategorías de Trabajo';
 
+    protected static ?string $navigationGroup = 'Catálogo';
+
+    protected static ?int $navigationSort = 2;
+
     protected static ?string $modelLabel = 'Subcategoría de trabajo';
 
     protected static ?string $pluralModelLabel = 'Subcategorías de trabajo';

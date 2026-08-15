@@ -11,6 +11,7 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
 
 class EjecutarChecklist extends Page
@@ -27,6 +28,8 @@ class EjecutarChecklist extends Page
     protected static ?string $navigationLabel = 'Ejecutar checklist';
 
     public ?int $itemSeleccionadoId = null;
+
+    public ?int $fotoAmpliadaId = null;
 
     public ?string $observacionesTexto = null;
 
@@ -116,6 +119,37 @@ class EjecutarChecklist extends Page
         $this->itemSeleccionadoId = null;
         $this->fotoAntes = null;
         $this->fotoDespues = null;
+    }
+
+    public function getFotoAmpliada(): ?Foto
+    {
+        return $this->fotoAmpliadaId ? Foto::find($this->fotoAmpliadaId) : null;
+    }
+
+    public function ampliarFoto(int $fotoId): void
+    {
+        $this->fotoAmpliadaId = $fotoId;
+    }
+
+    public function cerrarFotoAmpliada(): void
+    {
+        $this->fotoAmpliadaId = null;
+    }
+
+    public function eliminarFotoAmpliada(): void
+    {
+        $foto = $this->getFotoAmpliada();
+
+        if (! $foto) {
+            return;
+        }
+
+        Storage::disk('public')->delete($foto->url);
+        $foto->delete();
+
+        $this->fotoAmpliadaId = null;
+
+        Notification::make()->success()->title('Foto eliminada')->send();
     }
 
     public function alternarCompletado(): void

@@ -17,6 +17,10 @@ class ProgramacionResource extends Resource
 
     protected static ?string $navigationLabel = 'Programación de Personal';
 
+    protected static ?string $navigationGroup = 'Operación';
+
+    protected static ?int $navigationSort = 2;
+
     protected static ?string $modelLabel = 'Programación';
 
     protected static ?string $pluralModelLabel = 'Programaciones';

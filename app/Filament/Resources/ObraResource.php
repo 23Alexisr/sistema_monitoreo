@@ -24,6 +24,10 @@ class ObraResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Obras';
 
+    protected static ?string $navigationGroup = 'Operación';
+
+    protected static ?int $navigationSort = 1;
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
