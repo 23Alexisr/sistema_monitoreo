@@ -103,9 +103,14 @@ class ProgramacionResource extends Resource
                             }
                         };
                     }),
-                Forms\Components\TextInput::make('unidad')
-                    ->label('Unidad / vehículo'),
-                Forms\Components\TextInput::make('placa'),
+                Forms\Components\Select::make('vehiculo_id')
+                    ->label('Vehículo')
+                    ->relationship('vehiculo', 'placa')
+                    ->getOptionLabelFromRecordUsing(fn (\App\Models\Vehiculo $record) => $record->modelo ? "{$record->placa} · {$record->modelo}" : $record->placa)
+                    ->searchable()
+                    ->preload(),
+                Forms\Components\Toggle::make('es_conductor')
+                    ->label('Conductor del vehículo ese día'),
                 Forms\Components\TextInput::make('orden')
                     ->label('Orden de parada')
                     ->helperText('Secuencia del itinerario del día para este empleado (1ra parada, 2da parada, etc).')
@@ -128,6 +133,7 @@ class ProgramacionResource extends Resource
             'index' => Pages\ListProgramacions::route('/'),
             'create' => Pages\CreateProgramacion::route('/create'),
             'edit' => Pages\EditProgramacion::route('/{record}/edit'),
+            'detalle' => Pages\DetalleObraDia::route('/detalle/{obra}/{fecha}'),
         ];
     }
 }

@@ -6,9 +6,11 @@ use App\Filament\Resources\ProgramacionResource;
 use App\Models\Empleado;
 use App\Models\Obra;
 use App\Models\Programacion;
+use App\Models\Vehiculo;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
@@ -59,9 +61,30 @@ class CreateProgramacion extends Page
                     ])
                     ->default('trabajo')
                     ->required(),
-                Forms\Components\TextInput::make('unidad')
-                    ->label('Unidad / vehículo'),
-                Forms\Components\TextInput::make('placa'),
+                Forms\Components\Select::make('vehiculo_id')
+                    ->label('Vehículo')
+                    ->options(fn () => Vehiculo::query()
+                        ->where('estado', 'disponible')
+                        ->where('activo', true)
+                        ->orderBy('placa')
+                        ->get()
+                        ->mapWithKeys(fn (Vehiculo $vehiculo) => [
+                            $vehiculo->id => $vehiculo->modelo ? "{$vehiculo->placa} · {$vehiculo->modelo}" : $vehiculo->placa,
+                        ]))
+                    ->searchable()
+                    ->live()
+                    ->helperText('Solo se muestran vehículos disponibles y activos.')
+                    ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
+                        if (! $state) {
+                            return;
+                        }
+
+                        $responsableId = Vehiculo::find($state)?->empleado_responsable_id;
+
+                        if ($responsableId && in_array((int) $responsableId, $get('empleado_ids') ?? [], true)) {
+                            $set('conductor_id', $responsableId);
+                        }
+                    }),
                 Forms\Components\CheckboxList::make('empleado_ids')
                     ->label('Empleados')
                     ->options(fn () => Empleado::query()
@@ -80,6 +103,14 @@ class CreateProgramacion extends Page
                     ->content(fn (Get $get) => $this->conflictosParaMostrar($get('empleado_ids'), $get('fecha')))
                     ->visible(fn (Get $get) => filled($get('fecha')) && filled($get('empleado_ids')))
                     ->columnSpanFull(),
+                Forms\Components\Select::make('conductor_id')
+                    ->label('Conductor del vehículo (opcional)')
+                    ->helperText('Se sugiere automáticamente el responsable titular del vehículo si está entre los empleados seleccionados. Se puede cambiar libremente si el titular no está disponible ese día.')
+                    ->options(fn (Get $get) => Empleado::query()
+                        ->whereIn('id', $get('empleado_ids') ?? [])
+                        ->pluck('nombre_completo', 'id'))
+                    ->searchable()
+                    ->visible(fn (Get $get) => filled($get('vehiculo_id'))),
                 Forms\Components\Select::make('encargado_id')
                     ->label('Encargado del día (opcional)')
                     ->helperText('Si no se marca a nadie, todos quedan sin encargado para esta obra y fecha.')
@@ -153,8 +184,9 @@ class CreateProgramacion extends Page
 
         $empleadoIds = $data['empleado_ids'];
         $encargadoId = $data['encargado_id'] ?? null;
+        $conductorId = $data['conductor_id'] ?? null;
 
-        DB::transaction(function () use ($data, $empleadoIds, $encargadoId) {
+        DB::transaction(function () use ($data, $empleadoIds, $encargadoId, $conductorId) {
             foreach ($empleadoIds as $empleadoId) {
                 Programacion::create([
                     'obra_id' => $data['obra_id'],
@@ -163,8 +195,8 @@ class CreateProgramacion extends Page
                     'hora' => $data['hora'] ?? null,
                     'tipo' => $data['tipo'],
                     'es_encargado' => $encargadoId && ((int) $encargadoId === (int) $empleadoId),
-                    'unidad' => $data['unidad'] ?? null,
-                    'placa' => $data['placa'] ?? null,
+                    'vehiculo_id' => $data['vehiculo_id'] ?? null,
+                    'es_conductor' => $conductorId && ((int) $conductorId === (int) $empleadoId),
                 ]);
             }
         });

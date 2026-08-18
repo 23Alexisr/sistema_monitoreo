@@ -19,8 +19,8 @@ class Programacion extends Model
         'hora',
         'tipo',
         'es_encargado',
-        'unidad',
-        'placa',
+        'vehiculo_id',
+        'es_conductor',
         'orden',
     ];
 
@@ -30,6 +30,7 @@ class Programacion extends Model
             'fecha' => 'date',
             'hora' => 'datetime:H:i',
             'es_encargado' => 'boolean',
+            'es_conductor' => 'boolean',
         ];
     }
 
@@ -41,6 +42,11 @@ class Programacion extends Model
     public function empleado(): BelongsTo
     {
         return $this->belongsTo(Empleado::class);
+    }
+
+    public function vehiculo(): BelongsTo
+    {
+        return $this->belongsTo(Vehiculo::class);
     }
 
     public static function empleadoTieneOtraObraEseDia(int $empleadoId, string $fecha, ?int $obraId, ?int $ignorarId = null): bool

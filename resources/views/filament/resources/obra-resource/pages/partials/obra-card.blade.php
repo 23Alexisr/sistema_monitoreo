@@ -35,7 +35,7 @@
 <div style="overflow: hidden; border-radius: 14px; border: 1px solid #e5e7eb; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
     <div style="position: relative; padding: 18px 16px 22px; background-color: {{ $color }};">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
-            <span style="display: inline-block; max-width: 62%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; background: #ffffff; color: {{ $colorOscuro }}; padding: 4px 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+            <span style="display: inline-block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; background: #ffffff; color: {{ $colorOscuro }}; padding: 4px 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
                 {{ $cliente?->nombre ?? 'Sin cliente' }}
             </span>
             <span style="flex-shrink: 0; border-radius: 999px; background: rgba(255,255,255,0.28); color: #ffffff; padding: 4px 11px; font-size: 11px; font-weight: 600;">
@@ -72,10 +72,7 @@
 
         <div style="min-width: 0; flex: 1;">
             <p style="margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #9ca3af;">
-                {{ $obra->codigo }}
-                @if ($obra->ordenTrabajo?->numero_ot)
-                    · {{ $obra->ordenTrabajo->numero_ot }}
-                @endif
+                {{ $obra->ordenTrabajo?->numero_ot ?? $obra->codigo }}
             </p>
 
             <div style="margin-top: 8px; display: flex; align-items: center;">

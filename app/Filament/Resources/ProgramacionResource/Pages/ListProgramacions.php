@@ -19,7 +19,9 @@ class ListProgramacions extends Page
 
     public function mount(): void
     {
-        $this->fecha = now()->toDateString();
+        $fecha = request()->query('fecha');
+
+        $this->fecha = $fecha && Carbon::hasFormat($fecha, 'Y-m-d') ? $fecha : now()->toDateString();
     }
 
     protected function getHeaderActions(): array
@@ -52,7 +54,7 @@ class ListProgramacions extends Page
     {
         return Programacion::query()
             ->whereDate('fecha', $this->fecha)
-            ->with(['obra.cliente', 'empleado.user.roles'])
+            ->with(['obra.cliente', 'empleado.user.roles', 'vehiculo'])
             ->get();
     }
 
@@ -81,7 +83,7 @@ class ListProgramacions extends Page
                     'horaMin' => $horaMin,
                     'tieneViaje' => $registros->contains(fn (Programacion $r) => $r->tipo === 'viaje'),
                     'encargado' => $registros->first(fn (Programacion $r) => $r->es_encargado)?->empleado,
-                    'unidadInfo' => $registros->first(fn (Programacion $r) => filled($r->unidad) || filled($r->placa)),
+                    'vehiculo' => $registros->first(fn (Programacion $r) => $r->vehiculo_id)?->vehiculo,
                 ];
             })
             ->sortBy(fn ($item) => $item->horaMin ? $item->horaMin->format('H:i:s') : '99:99:99')

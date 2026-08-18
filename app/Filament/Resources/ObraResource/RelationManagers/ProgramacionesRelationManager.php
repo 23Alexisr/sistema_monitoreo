@@ -78,9 +78,14 @@ class ProgramacionesRelationManager extends RelationManager
                             }
                         };
                     }),
-                Forms\Components\TextInput::make('unidad')
-                    ->label('Unidad / vehículo'),
-                Forms\Components\TextInput::make('placa'),
+                Forms\Components\Select::make('vehiculo_id')
+                    ->label('Vehículo')
+                    ->relationship('vehiculo', 'placa')
+                    ->getOptionLabelFromRecordUsing(fn (\App\Models\Vehiculo $record) => $record->modelo ? "{$record->placa} · {$record->modelo}" : $record->placa)
+                    ->searchable()
+                    ->preload(),
+                Forms\Components\Toggle::make('es_conductor')
+                    ->label('Conductor del vehículo ese día'),
                 Forms\Components\TextInput::make('orden')
                     ->label('Orden de parada')
                     ->helperText('Secuencia del itinerario del día para este empleado (1ra parada, 2da parada, etc).')
@@ -109,9 +114,12 @@ class ProgramacionesRelationManager extends RelationManager
                 Tables\Columns\IconColumn::make('es_encargado')
                     ->label('Encargado')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('unidad')
-                    ->label('Unidad'),
-                Tables\Columns\TextColumn::make('placa'),
+                Tables\Columns\TextColumn::make('vehiculo.placa')
+                    ->label('Vehículo')
+                    ->placeholder('—'),
+                Tables\Columns\IconColumn::make('es_conductor')
+                    ->label('Conductor')
+                    ->boolean(),
                 Tables\Columns\TextColumn::make('orden')
                     ->label('Orden')
                     ->sortable(),

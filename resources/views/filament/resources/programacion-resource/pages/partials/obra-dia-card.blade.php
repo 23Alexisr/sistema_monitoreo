@@ -4,7 +4,7 @@
     $color = $cliente?->colorMarca() ?? \App\Models\Cliente::COLOR_MARCA_DEFECTO;
     $visibles = $item->registros->take(4);
     $restantes = $item->registros->count() - $visibles->count();
-    $puedeVerDetalle = $obra && \App\Filament\Resources\ObraResource::canEdit($obra);
+    $puedeVerDetalle = $obra && ! auth()->user()?->hasRole('operario');
 
     $rolColores = [
         'supervisor' => '#F59E0B',
@@ -14,7 +14,7 @@
 @endphp
 
 <{{ $puedeVerDetalle ? 'a' : 'div' }}
-    @if ($puedeVerDetalle) href="{{ \App\Filament\Resources\ObraResource::getUrl('edit', ['record' => $obra]) }}" @endif
+    @if ($puedeVerDetalle) href="{{ \App\Filament\Resources\ProgramacionResource::getUrl('detalle', ['obra' => $obra->id, 'fecha' => $fecha]) }}" @endif
     style="display: flex; overflow: hidden; border-radius: 12px; border: 1px solid #e5e7eb; background: #ffffff; text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,0.04);"
 >
     <div style="width: 6px; flex-shrink: 0; background-color: {{ $color }};"></div>
@@ -71,10 +71,10 @@
             @endif
         </div>
 
-        @if ($item->unidadInfo && (filled($item->unidadInfo->unidad) || filled($item->unidadInfo->placa)))
+        @if ($item->vehiculo)
             <div style="margin-top: 6px; display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #9ca3af;">
                 <x-heroicon-o-truck style="width: 14px; height: 14px; flex-shrink: 0;" />
-                <span>{{ collect([$item->unidadInfo->unidad, $item->unidadInfo->placa])->filter()->implode(' · ') }}</span>
+                <span>{{ collect([$item->vehiculo->placa, $item->vehiculo->modelo])->filter()->implode(' · ') }}</span>
             </div>
         @endif
     </div>
