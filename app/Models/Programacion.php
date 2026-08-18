@@ -28,7 +28,7 @@ class Programacion extends Model
     {
         return [
             'fecha' => 'date',
-            'hora' => 'datetime:H:i',
+            'hora' => 'datetime:h:i A',
             'es_encargado' => 'boolean',
             'es_conductor' => 'boolean',
         ];
@@ -83,11 +83,12 @@ class Programacion extends Model
         return 'La obra no tiene ningún encargado asignado para el '.\Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y').'.';
     }
 
-    public static function otrasAsignacionesEseDia(int $empleadoId, string $fecha): \Illuminate\Support\Collection
+    public static function otrasAsignacionesEseDia(int $empleadoId, string $fecha, ?int $excluirObraId = null): \Illuminate\Support\Collection
     {
         return static::query()
             ->where('empleado_id', $empleadoId)
             ->whereDate('fecha', $fecha)
+            ->when($excluirObraId, fn ($query) => $query->where('obra_id', '!=', $excluirObraId))
             ->with('obra')
             ->orderBy('orden')
             ->orderBy('hora')

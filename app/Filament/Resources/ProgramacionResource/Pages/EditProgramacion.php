@@ -31,4 +31,14 @@ class EditProgramacion extends EditRecord
                 ->send();
         }
     }
+
+    protected function getRedirectUrl(): string
+    {
+        $record = $this->getRecord();
+
+        return ProgramacionResource::getUrl('detalle', [
+            'obra' => $record->obra_id,
+            'fecha' => $record->fecha->toDateString(),
+        ]);
+    }
 }

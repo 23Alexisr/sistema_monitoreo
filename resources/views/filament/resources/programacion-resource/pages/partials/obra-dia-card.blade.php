@@ -28,7 +28,7 @@
             <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
                 @if ($item->horaMin)
                     <span style="font-size: 12px; font-weight: 600; color: #374151;">
-                        {{ $item->horaMin->format('H:i') }}
+                        {{ $item->horaMin->format('h:i A') }}
                     </span>
                 @endif
 

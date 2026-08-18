@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\ProgramacionResource\Pages;
 
+use App\Filament\Forms\Components\AvatarToggleButtons;
 use App\Filament\Resources\ProgramacionResource;
+use App\Filament\Resources\ProgramacionResource\Concerns\HasProgramacionFormHelpers;
 use App\Models\Empleado;
 use App\Models\Obra;
 use App\Models\Programacion;
@@ -14,10 +16,11 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\HtmlString;
 
 class CreateProgramacion extends Page
 {
+    use HasProgramacionFormHelpers;
+
     protected static string $resource = ProgramacionResource::class;
 
     protected static string $view = 'filament.resources.programacion-resource.pages.create-programacion';
@@ -43,26 +46,49 @@ class CreateProgramacion extends Page
         return $form
             ->statePath('data')
             ->schema([
+                static::seccionLabel('Dónde y cuándo'),
                 Forms\Components\Select::make('obra_id')
                     ->label('Obra')
+                    ->prefixIcon('heroicon-o-building-office-2')
                     ->options(fn () => Obra::query()->orderBy('nombre')->pluck('nombre', 'id'))
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->live(),
-                Forms\Components\DatePicker::make('fecha')
-                    ->required()
-                    ->live(),
-                Forms\Components\TimePicker::make('hora'),
-                Forms\Components\Select::make('tipo')
+                    ->live()
+                    ->columnSpanFull(),
+                Forms\Components\Grid::make(2)
+                    ->schema([
+                        Forms\Components\DatePicker::make('fecha')
+                            ->prefixIcon('heroicon-o-calendar')
+                            ->required()
+                            ->live(),
+                        Forms\Components\TimePicker::make('hora')
+                            ->prefixIcon('heroicon-o-clock')
+                            ->native(false)
+                            ->seconds(false)
+                            ->displayFormat('h:i A')
+                            ->format('H:i'),
+                    ]),
+
+                static::seccionLabel('Tipo de jornada'),
+                Forms\Components\ToggleButtons::make('tipo')
+                    ->hiddenLabel()
                     ->options([
                         'trabajo' => 'Trabajo',
                         'viaje' => 'Viaje',
                     ])
+                    ->icons([
+                        'trabajo' => 'heroicon-o-briefcase',
+                        'viaje' => 'heroicon-o-truck',
+                    ])
+                    ->grouped()
                     ->default('trabajo')
                     ->required(),
+
+                static::seccionLabel('Vehículo (opcional)'),
                 Forms\Components\Select::make('vehiculo_id')
-                    ->label('Vehículo')
+                    ->hiddenLabel()
+                    ->prefixIcon('heroicon-o-truck')
                     ->options(fn () => Vehiculo::query()
                         ->where('estado', 'disponible')
                         ->where('activo', true)
@@ -75,49 +101,94 @@ class CreateProgramacion extends Page
                     ->live()
                     ->helperText('Solo se muestran vehículos disponibles y activos.')
                     ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
+                        $responsableId = $state ? Vehiculo::find($state)?->empleado_responsable_id : null;
+
+                        $set('conductor_id', $responsableId);
+
+                        if ($responsableId) {
+                            $empleadoIds = $get('empleado_ids') ?? [];
+
+                            if (! in_array((int) $responsableId, $empleadoIds, true)) {
+                                $set('empleado_ids', [...$empleadoIds, (int) $responsableId]);
+                            }
+                        }
+                    }),
+                Forms\Components\Select::make('conductor_id')
+                    ->label('Conductor sugerido (opcional)')
+                    ->helperText('Se sugiere el responsable titular del vehículo. Filtrado a personal con especialidad de conductor.')
+                    ->options(fn (Get $get) => Empleado::query()
+                        ->where('especialidad', 'conductor')
+                        ->where(fn ($q) => $q->where('estado', 'activo')->when($get('conductor_id'), fn ($q2, $cId) => $q2->orWhere('id', $cId)))
+                        ->orderBy('nombre_completo')
+                        ->pluck('nombre_completo', 'id'))
+                    ->searchable()
+                    ->live()
+                    ->visible(fn (Get $get) => filled($get('vehiculo_id')))
+                    ->afterStateUpdated(function (Get $get, Set $set, ?string $state) {
                         if (! $state) {
                             return;
                         }
 
-                        $responsableId = Vehiculo::find($state)?->empleado_responsable_id;
+                        $empleadoIds = $get('empleado_ids') ?? [];
 
-                        if ($responsableId && in_array((int) $responsableId, $get('empleado_ids') ?? [], true)) {
-                            $set('conductor_id', $responsableId);
+                        if (! in_array((int) $state, $empleadoIds, true)) {
+                            $set('empleado_ids', [...$empleadoIds, (int) $state]);
                         }
                     }),
+
+                static::seccionLabel('Personal'),
                 Forms\Components\CheckboxList::make('empleado_ids')
-                    ->label('Empleados')
-                    ->options(fn () => Empleado::query()
-                        ->where('estado', 'activo')
-                        ->orderBy('nombre_completo')
-                        ->pluck('nombre_completo', 'id'))
+                    ->hiddenLabel()
+                    ->options(fn () => static::empleadosActivos()
+                        ->mapWithKeys(fn (Empleado $empleado) => [
+                            $empleado->id => '<div style="display:flex;align-items:center;gap:8px;">'
+                                .'<img src="'.e($empleado->avatarUrl()).'" alt="" style="width:26px;height:26px;border-radius:999px;object-fit:cover;flex-shrink:0;" />'
+                                .'<span>'.e($empleado->nombre_completo).'</span>'
+                                .'</div>',
+                        ]))
+                    ->descriptions(fn () => static::empleadosActivos()
+                        ->mapWithKeys(fn (Empleado $empleado) => [
+                            $empleado->id => static::especialidadLabels()[$empleado->especialidad] ?? ($empleado->especialidad ?? ''),
+                        ]))
+                    ->allowHtml()
                     ->searchable()
                     ->bulkToggleable()
                     ->columns(2)
                     ->required()
                     ->minItems(1)
                     ->live()
+                    ->afterStateUpdated(function (Get $get, Set $set, ?array $state) {
+                        $ids = $state ?? [];
+
+                        if ($get('encargado_id') && ! in_array((int) $get('encargado_id'), $ids, true)) {
+                            $set('encargado_id', null);
+                        }
+
+                        if ($get('conductor_id') && ! in_array((int) $get('conductor_id'), $ids, true)) {
+                            $set('conductor_id', null);
+                        }
+                    })
                     ->columnSpanFull(),
                 Forms\Components\Placeholder::make('conflictos')
                     ->label('Posibles dobles asignaciones ese día')
                     ->content(fn (Get $get) => $this->conflictosParaMostrar($get('empleado_ids'), $get('fecha')))
                     ->visible(fn (Get $get) => filled($get('fecha')) && filled($get('empleado_ids')))
                     ->columnSpanFull(),
-                Forms\Components\Select::make('conductor_id')
-                    ->label('Conductor del vehículo (opcional)')
-                    ->helperText('Se sugiere automáticamente el responsable titular del vehículo si está entre los empleados seleccionados. Se puede cambiar libremente si el titular no está disponible ese día.')
+
+                static::seccionLabel('A cargo del día'),
+                AvatarToggleButtons::make('encargado_id')
+                    ->hiddenLabel()
+                    ->helperText('Limitado al personal ya marcado arriba. Si no se marca a nadie, todos quedan sin encargado para esta obra y fecha.')
                     ->options(fn (Get $get) => Empleado::query()
                         ->whereIn('id', $get('empleado_ids') ?? [])
-                        ->pluck('nombre_completo', 'id'))
-                    ->searchable()
-                    ->visible(fn (Get $get) => filled($get('vehiculo_id'))),
-                Forms\Components\Select::make('encargado_id')
-                    ->label('Encargado del día (opcional)')
-                    ->helperText('Si no se marca a nadie, todos quedan sin encargado para esta obra y fecha.')
-                    ->options(fn (Get $get) => Empleado::query()
+                        ->get()
+                        ->mapWithKeys(fn (Empleado $empleado) => [$empleado->id => static::nombreCorto($empleado->nombre_completo)]))
+                    ->avatars(fn (Get $get) => Empleado::query()
                         ->whereIn('id', $get('empleado_ids') ?? [])
-                        ->pluck('nombre_completo', 'id'))
-                    ->searchable()
+                        ->get()
+                        ->mapWithKeys(fn (Empleado $empleado) => [$empleado->id => $empleado->avatarUrl()])
+                        ->toArray())
+                    ->inline()
                     ->rule(function (Get $get) {
                         return function (string $attribute, $value, \Closure $fail) use ($get) {
                             if (! $value) {
@@ -137,45 +208,6 @@ class CreateProgramacion extends Page
                         };
                     }),
             ]);
-    }
-
-    protected function conflictosParaMostrar(?array $empleadoIds, ?string $fecha): HtmlString
-    {
-        if (empty($empleadoIds) || ! $fecha) {
-            return new HtmlString('');
-        }
-
-        $lineas = [];
-
-        foreach (Empleado::query()->whereIn('id', $empleadoIds)->get() as $empleado) {
-            $registros = Programacion::otrasAsignacionesEseDia($empleado->id, $fecha);
-
-            if ($registros->isEmpty()) {
-                continue;
-            }
-
-            $detalle = $registros->map(function (Programacion $registro) {
-                $partes = [$registro->obra?->nombre ?? 'obra eliminada'];
-
-                if ($registro->hora) {
-                    $partes[] = 'a las '.$registro->hora->format('H:i');
-                }
-
-                if ($registro->orden) {
-                    $partes[] = '(parada '.$registro->orden.')';
-                }
-
-                return implode(' ', $partes);
-            })->implode(', ');
-
-            $lineas[] = '<strong>'.e($empleado->nombre_completo).'</strong> ya está programado en: '.e($detalle);
-        }
-
-        if (empty($lineas)) {
-            return new HtmlString('');
-        }
-
-        return new HtmlString(implode('<br>', $lineas));
     }
 
     public function create(): void

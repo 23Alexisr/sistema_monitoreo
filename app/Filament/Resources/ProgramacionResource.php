@@ -35,6 +35,11 @@ class ProgramacionResource extends Resource
         return ! auth()->user()?->hasRole('operario');
     }
 
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return ! auth()->user()?->hasRole('operario');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -74,7 +79,11 @@ class ProgramacionResource extends Resource
                 Forms\Components\DatePicker::make('fecha')
                     ->required()
                     ->live(),
-                Forms\Components\TimePicker::make('hora'),
+                Forms\Components\TimePicker::make('hora')
+                    ->native(false)
+                    ->seconds(false)
+                    ->displayFormat('h:i A')
+                    ->format('H:i'),
                 Forms\Components\Select::make('tipo')
                     ->options([
                         'trabajo' => 'Trabajo',
@@ -134,6 +143,7 @@ class ProgramacionResource extends Resource
             'create' => Pages\CreateProgramacion::route('/create'),
             'edit' => Pages\EditProgramacion::route('/{record}/edit'),
             'detalle' => Pages\DetalleObraDia::route('/detalle/{obra}/{fecha}'),
+            'editar-grupo' => Pages\EditarGrupoDia::route('/grupo/{obra}/{fecha}/edit'),
         ];
     }
 }

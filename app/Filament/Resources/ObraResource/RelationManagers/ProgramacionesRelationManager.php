@@ -50,7 +50,11 @@ class ProgramacionesRelationManager extends RelationManager
                 Forms\Components\DatePicker::make('fecha')
                     ->required()
                     ->live(),
-                Forms\Components\TimePicker::make('hora'),
+                Forms\Components\TimePicker::make('hora')
+                    ->native(false)
+                    ->seconds(false)
+                    ->displayFormat('h:i A')
+                    ->format('H:i'),
                 Forms\Components\Select::make('tipo')
                     ->options([
                         'trabajo' => 'Trabajo',
@@ -108,7 +112,7 @@ class ProgramacionesRelationManager extends RelationManager
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('hora')
-                    ->time('H:i'),
+                    ->time('h:i A'),
                 Tables\Columns\TextColumn::make('tipo')
                     ->badge(),
                 Tables\Columns\IconColumn::make('es_encargado')
