@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\ObraResource\Pages;
 
+use App\Filament\Forms\Components\ChecklistItemRepeater;
 use App\Filament\Resources\ObraResource;
 use App\Models\Checklist;
 use App\Models\TrabajoMaestro;
 use Filament\Actions;
 use Filament\Forms;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -103,22 +105,6 @@ class ManageChecklist extends Page
             ->toArray();
     }
 
-    protected static function itemLabel(array $state): ?string
-    {
-        return $state['descripcion'] ?? 'Nuevo item';
-    }
-
-    protected static function categoriaDelTrabajo(Forms\Get $get): ?\App\Models\CategoriaTrabajo
-    {
-        $trabajoId = $get('trabajo_maestro_id');
-
-        if (! $trabajoId) {
-            return null;
-        }
-
-        return TrabajoMaestro::find($trabajoId)?->categoriaEfectiva();
-    }
-
     /**
      * Si este campo pertenece a un sub-item (dentro del Repeater 'children'),
      * devuelve el trabajo_maestro del item padre. Para items de nivel raíz,
@@ -132,17 +118,53 @@ class ManageChecklist extends Page
         return $trabajoIdPadre ? TrabajoMaestro::find($trabajoIdPadre) : null;
     }
 
-    protected static function encabezadoDescripcion(Forms\Get $get): ?string
+    /**
+     * Igual que categoriaDelTrabajo(), pero a partir del estado crudo del
+     * item (array), no de un Get con scope de campo. La necesita el
+     * itemColor() del Repeater, que solo recibe el estado del item.
+     */
+    protected static function categoriaDelTrabajoDesdeEstado(array $state): ?\App\Models\CategoriaTrabajo
     {
-        $categoria = static::categoriaDelTrabajo($get);
-        $dias = $get('dias_estimados_override');
+        $trabajoId = $state['trabajo_maestro_id'] ?? null;
 
-        $partes = array_filter([
-            $categoria?->nombre,
-            filled($dias) ? "{$dias} días" : null,
-        ]);
+        if (! $trabajoId) {
+            return null;
+        }
 
-        return $partes ? implode(' · ', $partes) : null;
+        return TrabajoMaestro::find($trabajoId)?->categoriaEfectiva();
+    }
+
+    protected static function itemLabelHtml(array $state): HtmlString
+    {
+        $descripcion = filled($state['descripcion'] ?? null) ? $state['descripcion'] : 'Nuevo item';
+        $dias = $state['dias_estimados_override'] ?? null;
+
+        $html = '<span>'.e($descripcion).'</span>';
+
+        if (filled($dias)) {
+            $html .= ' <span style="font-weight:400;color:var(--text-secondary,#6b7280);">· '.e($dias).' días</span>';
+        }
+
+        return new HtmlString($html);
+    }
+
+    protected static function seccionLabel(string $texto): Forms\Components\Placeholder
+    {
+        return Forms\Components\Placeholder::make('label_'.\Illuminate\Support\Str::slug($texto, '_'))
+            ->hiddenLabel()
+            ->content(new HtmlString(
+                '<p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-secondary,#9ca3af);">'
+                .e($texto).'</p>'
+            ))
+            ->columnSpanFull();
+    }
+
+    protected static function chip(Forms\Components\Component $component): Forms\Components\Group
+    {
+        return Forms\Components\Group::make([$component])
+            ->extraAttributes([
+                'style' => 'border:1px solid var(--border-strong,#e5e7eb); border-radius:10px; padding:8px 12px; background:transparent;',
+            ]);
     }
 
     protected static function ordenMaximoHermanos(Forms\Get $get, mixed $excluirValor = null): int
@@ -180,6 +202,8 @@ class ManageChecklist extends Page
     protected function itemFields(): array
     {
         return [
+            static::seccionLabel('Identificación'),
+
             Forms\Components\Select::make('trabajo_maestro_id')
                 ->label('Trabajo del catálogo')
                 ->helperText(function (Forms\Get $get) {
@@ -225,61 +249,69 @@ class ManageChecklist extends Page
             Forms\Components\TextInput::make('descripcion')
                 ->required()
                 ->live(onBlur: true)
-                ->columnSpan(2),
-            Forms\Components\TextInput::make('dias_estimados_override')
-                ->label('Días estimados')
-                ->numeric()
-                ->step(0.01)
-                ->minValue(0.01)
-                ->required()
-                ->live(onBlur: true),
-            Forms\Components\Toggle::make('requiere_foto')
-                ->label('Requiere foto')
-                ->visible(fn (Forms\Get $get) => blank($get('trabajo_maestro_id'))),
-            Forms\Components\Placeholder::make('requiere_foto_info')
-                ->label('Requiere foto')
-                ->content(fn (Forms\Get $get) => $get('requiere_foto')
-                    ? 'Este trabajo requiere foto de antes y después para validarse en campo.'
-                    : 'Este trabajo no requiere evidencia fotográfica.')
-                ->visible(fn (Forms\Get $get) => filled($get('trabajo_maestro_id'))),
-            Forms\Components\Toggle::make('editar_orden_manual')
-                ->label('Reordenar manualmente')
-                ->live()
-                ->dehydrated(false)
-                ->default(false)
                 ->columnSpanFull(),
-            Forms\Components\TextInput::make('orden')
-                ->label('Orden')
-                ->numeric()
-                ->integer()
-                ->minValue(1)
-                ->required()
-                ->live(onBlur: true)
-                ->default(fn (Forms\Get $get) => static::ordenSugerido($get))
-                ->disabled(fn (Forms\Get $get) => ! $get('editar_orden_manual'))
-                ->dehydrated(true)
-                ->hint(fn (Forms\Get $get, $state) => static::ordenAdvertencia($get, filled($state) ? (int) $state : null))
-                ->hintColor('warning')
-                ->hintIcon(fn (Forms\Get $get, $state) => static::ordenAdvertencia($get, filled($state) ? (int) $state : null) ? 'heroicon-o-exclamation-triangle' : null),
-            Forms\Components\Textarea::make('observaciones')
-                ->columnSpanFull(),
-        ];
-    }
 
-    protected function itemSection(): array
-    {
-        return [
-            Section::make()
-                ->heading(fn (Forms\Get $get) => $get('descripcion') ?: 'Nuevo item')
-                ->description(fn (Forms\Get $get) => static::encabezadoDescripcion($get))
-                ->icon(fn (Forms\Get $get) => new HtmlString(
-                    '<span style="display:inline-block;width:12px;height:12px;border-radius:999px;background:'
-                    .e(static::categoriaDelTrabajo($get)?->color ?? '#9CA3AF')
-                    .';"></span>'
-                ))
+            static::seccionLabel('Configuración'),
+
+            Forms\Components\Grid::make(3)
+                ->schema([
+                    static::chip(
+                        Forms\Components\TextInput::make('dias_estimados_override')
+                            ->label('Días estimados')
+                            ->numeric()
+                            ->step(0.01)
+                            ->minValue(0.01)
+                            ->required()
+                            ->live(onBlur: true)
+                    ),
+                    static::chip(
+                        Forms\Components\TextInput::make('orden')
+                            ->label('Orden')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->required()
+                            ->live(onBlur: true)
+                            ->default(fn (Forms\Get $get) => static::ordenSugerido($get))
+                            ->disabled(fn (Forms\Get $get) => ! $get('editar_orden_manual'))
+                            ->dehydrated(true)
+                            ->hint(fn (Forms\Get $get, $state) => static::ordenAdvertencia($get, filled($state) ? (int) $state : null))
+                            ->hintColor('warning')
+                            ->hintIcon(fn (Forms\Get $get, $state) => static::ordenAdvertencia($get, filled($state) ? (int) $state : null) ? 'heroicon-o-exclamation-triangle' : null)
+                            ->suffixAction(
+                                Action::make('editarOrden')
+                                    ->icon(fn (Forms\Get $get) => $get('editar_orden_manual') ? 'heroicon-m-lock-open' : 'heroicon-m-pencil-square')
+                                    ->tooltip('Editar orden manualmente')
+                                    ->action(fn (Forms\Get $get, Forms\Set $set) => $set('editar_orden_manual', ! $get('editar_orden_manual')))
+                            )
+                    ),
+                    static::chip(
+                        Forms\Components\Group::make([
+                            Forms\Components\Toggle::make('requiere_foto')
+                                ->label('Requiere foto')
+                                ->visible(fn (Forms\Get $get) => blank($get('trabajo_maestro_id'))),
+                            Forms\Components\Placeholder::make('requiere_foto_info')
+                                ->label('Requiere foto')
+                                ->content(fn (Forms\Get $get) => $get('requiere_foto') ? 'Sí' : 'No')
+                                ->visible(fn (Forms\Get $get) => filled($get('trabajo_maestro_id'))),
+                        ])
+                    ),
+                ]),
+
+            Forms\Components\Hidden::make('editar_orden_manual')
+                ->default(false)
+                ->dehydrated(false),
+
+            Section::make('+ Observaciones (opcional)')
                 ->collapsible()
-                ->columns(2)
-                ->schema($this->itemFields()),
+                ->collapsed()
+                ->compact()
+                ->schema([
+                    Forms\Components\Textarea::make('observaciones')
+                        ->hiddenLabel()
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull(),
         ];
     }
 
@@ -293,26 +325,31 @@ class ManageChecklist extends Page
             ->model($this->checklist)
             ->statePath('data')
             ->schema([
-                Forms\Components\Repeater::make('items')
+                ChecklistItemRepeater::make('items')
                     ->relationship('items')
                     ->label('Items del checklist')
                     ->reorderable(false)
+                    ->collapsible()
                     ->addActionLabel('Agregar item')
-                    ->itemLabel(fn (array $state): ?string => static::itemLabel($state))
+                    ->itemLabel(fn (array $state) => static::itemLabelHtml($state))
+                    ->itemColor(fn (array $state) => static::categoriaDelTrabajoDesdeEstado($state)?->color)
                     ->schema([
-                        ...$this->itemSection(),
-                        Forms\Components\Repeater::make('children')
+                        ...$this->itemFields(),
+                        ChecklistItemRepeater::make('children')
                             ->relationship('children')
                             ->label('Sub-items')
                             ->reorderable(false)
+                            ->collapsible()
                             ->addActionLabel('Agregar sub-item')
-                            ->itemLabel(fn (array $state): ?string => static::itemLabel($state))
-                            ->schema($this->itemSection())
-                            ->extraAttributes([
-                                'style' => 'border-left: 3px solid #FDE68A; padding-left: 14px; margin-left: 4px; background: #FFFBEB; border-radius: 8px;',
-                            ])
-                            ->columnSpanFull()
-                            ->collapsible(),
+                            ->addAction(fn (Action $action) => $action
+                                ->icon('heroicon-o-plus')
+                                ->extraAttributes([
+                                    'style' => 'color: var(--text-secondary, #6b7280); border: 1px dashed var(--border-strong, #d1d5db); background: transparent;',
+                                ]))
+                            ->itemLabel(fn (array $state) => static::itemLabelHtml($state))
+                            ->itemColor(fn (array $state) => static::categoriaDelTrabajoDesdeEstado($state)?->color)
+                            ->schema($this->itemFields())
+                            ->columnSpanFull(),
                     ])
                     ->columnSpanFull(),
             ]);

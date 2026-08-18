@@ -19,7 +19,11 @@ class ListObras extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\Action::make('crear')
+                ->label('Agregar obra')
+                ->icon('heroicon-o-plus')
+                ->url(fn () => static::getResource()::getUrl('create'))
+                ->visible(fn () => static::getResource()::canCreate()),
         ];
     }
 

@@ -119,6 +119,14 @@ class Obra extends Model
         ];
     }
 
+    public function checklistPendientes(): \Illuminate\Support\Collection
+    {
+        return $this->itemsParaAvance()
+            ->where('completado', false)
+            ->sortBy('orden')
+            ->values();
+    }
+
     protected function avancePct(): Attribute
     {
         return Attribute::make(get: fn () => $this->calcularAvance());

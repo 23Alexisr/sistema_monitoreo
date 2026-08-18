@@ -1,4 +1,16 @@
 <x-filament-panels::page>
+    <style>
+        :root {
+            --text-secondary: #6b7280;
+            --border-strong: #d1d5db;
+        }
+
+        .dark {
+            --text-secondary: #9ca3af;
+            --border-strong: rgba(255, 255, 255, 0.24);
+        }
+    </style>
+
     @if ($this->checklist)
         <div class="mb-6">
             <x-filament::badge :color="$this->record->avance_pct >= 100 ? 'success' : 'warning'">

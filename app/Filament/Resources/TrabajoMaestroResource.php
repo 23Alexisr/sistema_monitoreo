@@ -44,7 +44,7 @@ class TrabajoMaestroResource extends Resource
             ->schema([
                 Forms\Components\Select::make('categoria_id')
                     ->label('Categoría')
-                    ->relationship('categoria', 'nombre', fn ($query) => $query->orderBy('orden'))
+                    ->options(fn () => CategoriaTrabajo::query()->orderBy('orden')->pluck('nombre', 'id')->toArray())
                     ->searchable()
                     ->preload()
                     ->live()
