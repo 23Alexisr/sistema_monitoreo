@@ -56,6 +56,7 @@ class EditarGrupoDia extends Page
         $this->form->fill([
             'hora' => $primero->hora?->format('H:i'),
             'tipo' => $primero->tipo,
+            'comentario' => $primero->comentario,
             'vehiculo_id' => $primero->vehiculo_id,
             'empleado_ids' => $registros->pluck('empleado_id')->toArray(),
             'encargado_id' => $encargado?->empleado_id,
@@ -95,6 +96,11 @@ class EditarGrupoDia extends Page
                                 ->seconds(false)
                                 ->displayFormat('h:i A')
                                 ->format('H:i'),
+                            Forms\Components\Textarea::make('comentario')
+                                ->label('Comentario del día (opcional)')
+                                ->placeholder('Ej. no olvidar llevar la escalera, cliente pidió llegar después de las 8am...')
+                                ->rows(2)
+                                ->columnSpanFull(),
 
                             static::seccionLabel('Tipo de jornada'),
                             Forms\Components\ToggleButtons::make('tipo')
@@ -218,6 +224,11 @@ class EditarGrupoDia extends Page
                                 ->content(fn (Get $get) => $this->conflictosParaMostrar($get('empleado_ids'), $this->fecha, $this->obraRecord->id))
                                 ->visible(fn (Get $get) => filled($get('empleado_ids')))
                                 ->columnSpanFull(),
+                            Forms\Components\Placeholder::make('advertencia_conductores')
+                                ->hiddenLabel()
+                                ->content(fn (Get $get) => $this->advertenciaConductores($get('empleado_ids'), $get('conductor_id')))
+                                ->visible(fn (Get $get) => filled($get('empleado_ids')))
+                                ->columnSpanFull(),
 
                             static::seccionLabel('A cargo del día'),
                             AvatarToggleButtons::make('encargado_id')
@@ -260,6 +271,7 @@ class EditarGrupoDia extends Page
                 $atributos = [
                     'hora' => $data['hora'] ?? null,
                     'tipo' => $data['tipo'],
+                    'comentario' => $data['comentario'] ?? null,
                     'vehiculo_id' => $data['vehiculo_id'] ?? null,
                     'es_encargado' => $encargadoId && ((int) $encargadoId === (int) $empleadoId),
                     'es_conductor' => $conductorId && ((int) $conductorId === (int) $empleadoId),

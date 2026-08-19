@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class Programacion extends Model
 {
@@ -18,6 +20,7 @@ class Programacion extends Model
         'fecha',
         'hora',
         'tipo',
+        'comentario',
         'es_encargado',
         'vehiculo_id',
         'es_conductor',
@@ -80,10 +83,10 @@ class Programacion extends Model
             return null;
         }
 
-        return 'La obra no tiene ningún encargado asignado para el '.\Illuminate\Support\Carbon::parse($fecha)->format('d/m/Y').'.';
+        return 'La obra no tiene ningún encargado asignado para el '.Carbon::parse($fecha)->format('d/m/Y').'.';
     }
 
-    public static function otrasAsignacionesEseDia(int $empleadoId, string $fecha, ?int $excluirObraId = null): \Illuminate\Support\Collection
+    public static function otrasAsignacionesEseDia(int $empleadoId, string $fecha, ?int $excluirObraId = null): Collection
     {
         return static::query()
             ->where('empleado_id', $empleadoId)

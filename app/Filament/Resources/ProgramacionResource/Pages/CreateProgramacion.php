@@ -15,6 +15,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CreateProgramacion extends Page
@@ -37,7 +38,7 @@ class CreateProgramacion extends Page
 
         $this->form->fill([
             'tipo' => 'trabajo',
-            'fecha' => $fecha && \Illuminate\Support\Carbon::hasFormat($fecha, 'Y-m-d') ? $fecha : null,
+            'fecha' => $fecha && Carbon::hasFormat($fecha, 'Y-m-d') ? $fecha : null,
         ]);
     }
 
@@ -69,6 +70,11 @@ class CreateProgramacion extends Page
                             ->displayFormat('h:i A')
                             ->format('H:i'),
                     ]),
+                Forms\Components\Textarea::make('comentario')
+                    ->label('Comentario del día (opcional)')
+                    ->placeholder('Ej. no olvidar llevar la escalera, cliente pidió llegar después de las 8am...')
+                    ->rows(2)
+                    ->columnSpanFull(),
 
                 static::seccionLabel('Tipo de jornada'),
                 Forms\Components\ToggleButtons::make('tipo')
@@ -174,6 +180,11 @@ class CreateProgramacion extends Page
                     ->content(fn (Get $get) => $this->conflictosParaMostrar($get('empleado_ids'), $get('fecha')))
                     ->visible(fn (Get $get) => filled($get('fecha')) && filled($get('empleado_ids')))
                     ->columnSpanFull(),
+                Forms\Components\Placeholder::make('advertencia_conductores')
+                    ->hiddenLabel()
+                    ->content(fn (Get $get) => $this->advertenciaConductores($get('empleado_ids'), $get('conductor_id')))
+                    ->visible(fn (Get $get) => filled($get('empleado_ids')))
+                    ->columnSpanFull(),
 
                 static::seccionLabel('A cargo del día'),
                 AvatarToggleButtons::make('encargado_id')
@@ -226,6 +237,7 @@ class CreateProgramacion extends Page
                     'fecha' => $data['fecha'],
                     'hora' => $data['hora'] ?? null,
                     'tipo' => $data['tipo'],
+                    'comentario' => $data['comentario'] ?? null,
                     'es_encargado' => $encargadoId && ((int) $encargadoId === (int) $empleadoId),
                     'vehiculo_id' => $data['vehiculo_id'] ?? null,
                     'es_conductor' => $conductorId && ((int) $conductorId === (int) $empleadoId),

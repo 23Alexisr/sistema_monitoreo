@@ -3,11 +3,35 @@
     $vehiculo = $this->getVehiculo();
     $horaMin = $this->getHoraMin();
     $fechaCarbon = \Illuminate\Support\Carbon::parse($fecha);
+    $comentario = $registros->first(fn ($registro) => filled($registro->comentario))?->comentario;
     $avance = $obraRecord->avance_pct;
     $pendientes = $obraRecord->checklistPendientes();
     $totalPendientes = $pendientes->count();
     $pendientesVisibles = $pendientes->take(3);
     $pendientesRestantes = $totalPendientes - $pendientesVisibles->count();
+
+    /**
+     * "Checklist completo" solo si de verdad no queda nada sin completar
+     * (usa el mismo criterio que avance_pct: estado === completado). No
+     * alcanza con que checklistPendientes() esté vacío, porque esa lista
+     * excluye a propósito los items en pendiente_aprobacion — si todo el
+     * checklist quedó ahí esperando revisión de jefatura, totalPendientes
+     * da 0 pero el trabajo real sigue sin cerrar (avance_pct también en 0%).
+     *
+     * Tampoco alcanza con revisar resumenChecklist()['pendientes'] === 0 a
+     * secas: si la obra no tiene checklist armado, o el checklist existe
+     * pero está vacío (0 items), ese conteo también da 0 — "vacuously true"
+     * — y mostraba "Checklist completo" con 0% de avance, contradictorio.
+     * Hace falta chequear explícitamente que haya al menos un item.
+     */
+    $checklist = $obraRecord->ordenTrabajo?->checklist;
+    $resumenChecklist = $obraRecord->resumenChecklist();
+    $totalItemsChecklist = $resumenChecklist['listos'] + $resumenChecklist['pendientes'];
+
+    $sinChecklist = ! $checklist;
+    $checklistVacio = $checklist && $totalItemsChecklist === 0;
+    $checklistCompleto = ! $sinChecklist && ! $checklistVacio && $resumenChecklist['pendientes'] === 0;
+    $esperandoAprobacion = ! $sinChecklist && ! $checklistVacio && ! $checklistCompleto && $totalPendientes === 0;
 
     $especialidadLabels = [
         'electricista' => 'Electricista',
@@ -15,6 +39,14 @@
         'instalador' => 'Instalador',
         'pintor' => 'Pintor',
         'auxiliar' => 'Auxiliar',
+    ];
+
+    $especialidadIconos = [
+        'electricista' => 'heroicon-o-bolt',
+        'conductor' => 'heroicon-o-truck',
+        'instalador' => 'heroicon-o-wrench-screwdriver',
+        'pintor' => 'heroicon-o-paint-brush',
+        'auxiliar' => 'heroicon-o-user',
     ];
 @endphp
 
@@ -62,9 +94,21 @@
                 </h2>
 
                 @if ($obraRecord->ubicacion)
-                    <div style="margin-top: 6px; display: flex; align-items: center; gap: 5px; font-size: 13px; color: #6b7280;">
+                    <div style="margin-top: 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px; font-size: 13px; color: #6b7280;">
                         <x-heroicon-o-map-pin style="width: 15px; height: 15px; flex-shrink: 0;" />
                         <span>{{ $obraRecord->ubicacion }}</span>
+
+                        @if ($obraRecord->link_maps)
+                            <a
+                                href="{{ $obraRecord->link_maps }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style="display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; text-decoration: none; border-radius: 999px; background: #F3F4F6; color: #374151; padding: 2px 9px; font-size: 11.5px; font-weight: 600;"
+                            >
+                                <x-heroicon-o-arrow-top-right-on-square style="width: 12px; height: 12px; flex-shrink: 0;" />
+                                Ver en Maps
+                            </a>
+                        @endif
                     </div>
                 @endif
             </div>
@@ -82,6 +126,18 @@
                 @endif
             </div>
         </div>
+
+        @if ($comentario)
+            <div style="display: flex; gap: 10px; align-items: flex-start; border-radius: 12px; background: #F0F9FF; border: 1px solid #BAE6FD; padding: 14px 16px; margin-bottom: 16px;">
+                <x-heroicon-o-chat-bubble-bottom-center-text style="width: 18px; height: 18px; flex-shrink: 0; color: #0369A1; margin-top: 1px;" />
+                <div style="min-width: 0;">
+                    <p style="margin: 0 0 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #0369A1;">
+                        Comentario del día
+                    </p>
+                    <p style="margin: 0; font-size: 13.5px; color: #0c4a6e; white-space: pre-line;">{{ $comentario }}</p>
+                </div>
+            </div>
+        @endif
 
         <div class="detalle-obra-dia-grid">
             <div>
@@ -114,7 +170,7 @@
 
                                     @if ($registro->es_conductor)
                                         <span style="display: inline-block; border-radius: 999px; background: #DBEAFE; color: #1E40AF; padding: 2px 8px; font-size: 10.5px; font-weight: 700;">
-                                            Conductor
+                                            Maneja hoy
                                         </span>
                                     @endif
                                 </div>
@@ -130,13 +186,16 @@
                                     </a>
                                 @endif
 
-                                <a
-                                    href="{{ \App\Filament\Resources\ProgramacionResource::getUrl('edit', ['record' => $registro->id]) }}"
-                                    title="Editar esta asignación"
-                                    style="display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; background: #F3F4F6; color: #374151; text-decoration: none;"
+                                <div
+                                    title="{{ $registro->es_encargado ? 'A cargo' : ($especialidadLabels[$empleado?->especialidad] ?? 'Personal') }}"
+                                    style="display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 999px; background: {{ $registro->es_encargado ? '#FEF3C7' : '#F3F4F6' }}; color: {{ $registro->es_encargado ? '#92400E' : '#374151' }}; flex-shrink: 0;"
                                 >
-                                    <x-heroicon-o-pencil-square style="width: 16px; height: 16px;" />
-                                </a>
+                                    @if ($registro->es_encargado)
+                                        <x-heroicon-o-star style="width: 16px; height: 16px;" />
+                                    @else
+                                        <x-dynamic-component :component="$especialidadIconos[$empleado?->especialidad] ?? 'heroicon-o-user'" style="width: 16px; height: 16px;" />
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     @empty
@@ -171,10 +230,25 @@
                     </div>
 
                     <div style="margin-top: 14px;">
-                        @if ($totalPendientes === 0)
+                        @if ($sinChecklist)
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #9ca3af;">
+                                <x-heroicon-o-document-plus style="width: 16px; height: 16px; flex-shrink: 0;" />
+                                Sin checklist armado
+                            </div>
+                        @elseif ($checklistVacio)
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #9ca3af;">
+                                <x-heroicon-o-document-plus style="width: 16px; height: 16px; flex-shrink: 0;" />
+                                Checklist vacío, sin items cargados
+                            </div>
+                        @elseif ($checklistCompleto)
                             <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #059669;">
                                 <x-heroicon-o-check-circle style="width: 16px; height: 16px; flex-shrink: 0;" />
                                 Checklist completo
+                            </div>
+                        @elseif ($esperandoAprobacion)
+                            <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #0369A1;">
+                                <x-heroicon-o-clock style="width: 16px; height: 16px; flex-shrink: 0;" />
+                                Evidencia cargada, esperando aprobación de jefatura
                             </div>
                         @else
                             <p style="margin: 0 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;">
