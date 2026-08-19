@@ -42,4 +42,9 @@ class CategoriaTrabajo extends Model
     {
         return $this->hasMany(TrabajoMaestro::class, 'categoria_id');
     }
+
+    public function subcategorias(): HasMany
+    {
+        return $this->hasMany(SubcategoriaTrabajo::class, 'categoria_id');
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CategoriaTrabajoResource\Pages;
+use App\Filament\Resources\CategoriaTrabajoResource\RelationManagers;
 use App\Models\CategoriaTrabajo;
 use App\Support\OrdenValidator;
 use Filament\Forms;
@@ -112,10 +113,19 @@ class CategoriaTrabajoResource extends Resource
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\SubcategoriasRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ManageCategoriaTrabajos::route('/'),
+            'index' => Pages\ListCategoriaTrabajos::route('/'),
+            'create' => Pages\CreateCategoriaTrabajo::route('/create'),
+            'edit' => Pages\EditCategoriaTrabajo::route('/{record}/edit'),
         ];
     }
 }

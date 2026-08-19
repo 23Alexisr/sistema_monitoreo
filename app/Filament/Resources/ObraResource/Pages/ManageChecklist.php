@@ -4,8 +4,10 @@ namespace App\Filament\Resources\ObraResource\Pages;
 
 use App\Filament\Forms\Components\ChecklistItemRepeater;
 use App\Filament\Resources\ObraResource;
+use App\Models\CategoriaTrabajo;
 use App\Models\Checklist;
 use App\Models\TrabajoMaestro;
+use App\Support\OrdenValidator;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Forms\Components\Actions\Action;
@@ -15,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 
 class ManageChecklist extends Page
 {
@@ -32,7 +35,7 @@ class ManageChecklist extends Page
 
     public ?Checklist $checklist = null;
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
 
@@ -123,7 +126,7 @@ class ManageChecklist extends Page
      * item (array), no de un Get con scope de campo. La necesita el
      * itemColor() del Repeater, que solo recibe el estado del item.
      */
-    protected static function categoriaDelTrabajoDesdeEstado(array $state): ?\App\Models\CategoriaTrabajo
+    protected static function categoriaDelTrabajoDesdeEstado(array $state): ?CategoriaTrabajo
     {
         $trabajoId = $state['trabajo_maestro_id'] ?? null;
 
@@ -150,7 +153,7 @@ class ManageChecklist extends Page
 
     protected static function seccionLabel(string $texto): Forms\Components\Placeholder
     {
-        return Forms\Components\Placeholder::make('label_'.\Illuminate\Support\Str::slug($texto, '_'))
+        return Forms\Components\Placeholder::make('label_'.Str::slug($texto, '_'))
             ->hiddenLabel()
             ->content(new HtmlString(
                 '<p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-secondary,#9ca3af);">'
@@ -180,7 +183,7 @@ class ManageChecklist extends Page
 
     protected static function ordenSugerido(Forms\Get $get): int
     {
-        return \App\Support\OrdenValidator::sugerido(static::ordenMaximoHermanos($get));
+        return OrdenValidator::sugerido(static::ordenMaximoHermanos($get));
     }
 
     protected static function ordenAdvertencia(Forms\Get $get, ?int $orden): ?string
@@ -196,7 +199,7 @@ class ManageChecklist extends Page
 
         $maxOtros = static::ordenMaximoHermanos($get, $orden);
 
-        return \App\Support\OrdenValidator::advertencia($orden, $maxOtros, $duplicado['descripcion'] ?? null);
+        return OrdenValidator::advertencia($orden, $maxOtros, $duplicado['descripcion'] ?? null);
     }
 
     protected function itemFields(): array
@@ -289,7 +292,8 @@ class ManageChecklist extends Page
                         Forms\Components\Group::make([
                             Forms\Components\Toggle::make('requiere_foto')
                                 ->label('Requiere foto')
-                                ->visible(fn (Forms\Get $get) => blank($get('trabajo_maestro_id'))),
+                                ->visible(fn (Forms\Get $get) => blank($get('trabajo_maestro_id')))
+                                ->dehydratedWhenHidden(),
                             Forms\Components\Placeholder::make('requiere_foto_info')
                                 ->label('Requiere foto')
                                 ->content(fn (Forms\Get $get) => $get('requiere_foto') ? 'Sí' : 'No')
@@ -330,6 +334,7 @@ class ManageChecklist extends Page
                     ->label('Items del checklist')
                     ->reorderable(false)
                     ->collapsible()
+                    ->collapsed()
                     ->addActionLabel('Agregar item')
                     ->itemLabel(fn (array $state) => static::itemLabelHtml($state))
                     ->itemColor(fn (array $state) => static::categoriaDelTrabajoDesdeEstado($state)?->color)
@@ -340,6 +345,7 @@ class ManageChecklist extends Page
                             ->label('Sub-items')
                             ->reorderable(false)
                             ->collapsible()
+                            ->collapsed()
                             ->addActionLabel('Agregar sub-item')
                             ->addAction(fn (Action $action) => $action
                                 ->icon('heroicon-o-plus')

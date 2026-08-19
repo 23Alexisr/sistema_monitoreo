@@ -3,15 +3,12 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ClienteResource\Pages;
-use App\Filament\Resources\ClienteResource\RelationManagers;
 use App\Models\Cliente;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class ClienteResource extends Resource
 {
@@ -44,10 +41,9 @@ class ClienteResource extends Resource
                 Forms\Components\FileUpload::make('logo')
                     ->label('Logo')
                     ->image()
-                    ->avatar()
                     ->disk('public')
                     ->directory('clientes')
-                    ->helperText('Opcional. Si no se sube, se muestran las iniciales del cliente.'),
+                    ->helperText('Opcional. SVG recomendado (también admite PNG/JPG). Si no se sube, se muestran las iniciales del cliente.'),
                 Forms\Components\TextInput::make('nombre')
                     ->required()
                     ->live(onBlur: true),

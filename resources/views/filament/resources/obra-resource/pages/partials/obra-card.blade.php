@@ -35,9 +35,15 @@
 <div style="overflow: hidden; border-radius: 14px; border: 1px solid #e5e7eb; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
     <div style="position: relative; padding: 18px 16px 22px; background-color: {{ $color }};">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
-            <span style="display: inline-block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; background: #ffffff; color: {{ $colorOscuro }}; padding: 4px 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
-                {{ $cliente?->nombre ?? 'Sin cliente' }}
-            </span>
+            @if ($cliente?->logoUrl())
+                <span style="display: inline-flex; align-items: center; flex-shrink: 0; max-width: 60%; box-sizing: border-box; border-radius: 8px; background: #ffffff; padding: 4px 10px;">
+                    <img src="{{ $cliente->logoUrl() }}" alt="{{ $cliente->nombre }}" style="display: block; max-width: 100%; max-height: 20px; object-fit: contain;" />
+                </span>
+            @else
+                <span style="display: inline-block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; background: #ffffff; color: {{ $colorOscuro }}; padding: 4px 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+                    {{ $cliente?->nombre ?? 'Sin cliente' }}
+                </span>
+            @endif
             <span style="flex-shrink: 0; border-radius: 999px; background: rgba(255,255,255,0.28); color: #ffffff; padding: 4px 11px; font-size: 11px; font-weight: 600;">
                 {{ $estadoLabels[$obra->estado] ?? $obra->estado }}
             </span>

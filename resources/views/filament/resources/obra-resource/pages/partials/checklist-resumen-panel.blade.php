@@ -12,9 +12,15 @@
 <div style="display: flex; flex-direction: column; gap: 14px;">
     {{-- Tarjeta de avance --}}
     <div style="border-radius: 14px; border: 1px solid #e5e7eb; background: #ffffff; padding: 18px; text-align: center;">
-        <span style="display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; background: {{ $colorCliente }}; color: {{ $colorClienteOscuro }}; padding: 4px 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
-            {{ $cliente?->nombre ?? 'Sin cliente' }}
-        </span>
+        @if ($cliente?->logoUrl())
+            <span style="display: inline-flex; align-items: center; justify-content: center; max-width: 100%; box-sizing: border-box; border-radius: 8px; background: #ffffff; border: 1px solid #e5e7eb; padding: 4px 10px;">
+                <img src="{{ $cliente->logoUrl() }}" alt="{{ $cliente->nombre }}" style="display: block; max-width: 100%; max-height: 20px; object-fit: contain;" />
+            </span>
+        @else
+            <span style="display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; background: {{ $colorCliente }}; color: {{ $colorClienteOscuro }}; padding: 4px 11px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">
+                {{ $cliente?->nombre ?? 'Sin cliente' }}
+            </span>
+        @endif
 
         <h3 style="margin: 8px 0 16px; font-size: 15px; font-weight: 700; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             {{ $obra->nombre }}

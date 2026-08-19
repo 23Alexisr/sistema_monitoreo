@@ -68,6 +68,11 @@ class Cliente extends Model
         );
     }
 
+    public function logoUrl(): ?string
+    {
+        return $this->logo ? Storage::disk('public')->url($this->logo) : null;
+    }
+
     public function avatarUrl(): string
     {
         if ($this->logo) {
