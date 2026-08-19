@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\EstadoChecklistItem;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,17 +20,21 @@ class ChecklistItem extends Model
         'descripcion',
         'dias_estimados_override',
         'orden',
-        'completado',
+        'estado',
         'requiere_foto',
         'observaciones',
+        'aprobado_por',
+        'fecha_aprobacion',
+        'motivo_rechazo',
     ];
 
     protected function casts(): array
     {
         return [
             'dias_estimados_override' => 'decimal:2',
-            'completado' => 'boolean',
+            'estado' => EstadoChecklistItem::class,
             'requiere_foto' => 'boolean',
+            'fecha_aprobacion' => 'datetime',
         ];
     }
 
@@ -60,7 +66,7 @@ class ChecklistItem extends Model
         });
     }
 
-    protected static function hermanosDelGrupo(int $checklistId, ?int $parentId): \Illuminate\Database\Eloquent\Builder
+    protected static function hermanosDelGrupo(int $checklistId, ?int $parentId): Builder
     {
         $query = static::where('checklist_id', $checklistId);
 
@@ -92,6 +98,11 @@ class ChecklistItem extends Model
         return $this->hasMany(Foto::class);
     }
 
+    public function aprobadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'aprobado_por');
+    }
+
     public function dias(): float
     {
         return (float) ($this->dias_estimados_override ?? $this->trabajoMaestro?->dias_estimados ?? 0);
@@ -112,16 +123,54 @@ class ChecklistItem extends Model
         return $this->fotos()->where('momento', 'despues')->exists();
     }
 
-    public function sincronizarCompletadoAutomatico(): void
+    /**
+     * Aprobar/rechazar solo aplica dentro del ciclo de evidencia fotográfica
+     * (pendiente → pendiente_aprobacion → completado/rechazado). Una vez
+     * completado, no se toca automáticamente por cambios en las fotos.
+     */
+    public function sincronizarEstadoAutomatico(): void
     {
         if (! $this->requiere_foto) {
             return;
         }
 
-        $nuevoEstado = $this->tieneFotoAntes() && $this->tieneFotoDespues();
-
-        if ($nuevoEstado !== $this->completado) {
-            $this->update(['completado' => $nuevoEstado]);
+        if (! in_array($this->estado, [EstadoChecklistItem::Pendiente, EstadoChecklistItem::PendienteAprobacion, EstadoChecklistItem::Rechazado], true)) {
+            return;
         }
+
+        $tieneAmbas = $this->tieneFotoAntes() && $this->tieneFotoDespues();
+
+        if ($tieneAmbas && $this->estado !== EstadoChecklistItem::PendienteAprobacion) {
+            $this->update([
+                'estado' => EstadoChecklistItem::PendienteAprobacion,
+                'motivo_rechazo' => null,
+            ]);
+
+            return;
+        }
+
+        if (! $tieneAmbas && $this->estado === EstadoChecklistItem::PendienteAprobacion) {
+            $this->update(['estado' => EstadoChecklistItem::Pendiente]);
+        }
+    }
+
+    public function aprobar(User $usuario): void
+    {
+        $this->update([
+            'estado' => EstadoChecklistItem::Completado,
+            'aprobado_por' => $usuario->id,
+            'fecha_aprobacion' => now(),
+            'motivo_rechazo' => null,
+        ]);
+    }
+
+    public function rechazar(string $motivo): void
+    {
+        $this->update([
+            'estado' => EstadoChecklistItem::Rechazado,
+            'motivo_rechazo' => $motivo,
+            'aprobado_por' => null,
+            'fecha_aprobacion' => null,
+        ]);
     }
 }

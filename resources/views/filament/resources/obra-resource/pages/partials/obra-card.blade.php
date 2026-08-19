@@ -110,7 +110,7 @@
 
     @if ($puedeVerDetalle)
         <a
-            href="{{ \App\Filament\Resources\ObraResource::getUrl('edit', ['record' => $obra]) }}"
+            href="{{ \App\Filament\Resources\ObraResource::getUrl('checklist-ejecutar', ['record' => $obra]) }}"
             style="display: block; border-top: 1px solid #f0f0f0; padding: 10px 16px; text-align: center; font-size: 12.5px; font-weight: 600; color: #374151; text-decoration: none;"
         >
             Ver detalle

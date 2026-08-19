@@ -10,6 +10,10 @@ class EditObra extends EditRecord
 {
     protected static string $resource = ObraResource::class;
 
+    protected static ?string $title = 'Datos generales';
+
+    protected static ?string $navigationLabel = 'Datos generales';
+
     protected function getHeaderActions(): array
     {
         return [

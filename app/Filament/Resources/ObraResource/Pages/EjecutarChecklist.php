@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\ObraResource\Pages;
 
+use App\Enums\EstadoChecklistItem;
 use App\Filament\Resources\ObraResource;
 use App\Models\Checklist;
 use App\Models\ChecklistItem;
 use App\Models\Foto;
+use App\Models\Obra;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -23,21 +25,25 @@ class EjecutarChecklist extends Page
 
     protected static string $view = 'filament.resources.obra-resource.pages.ejecutar-checklist';
 
-    protected static ?string $title = 'Ejecutar checklist';
+    protected static ?string $title = 'Checklist';
 
-    protected static ?string $navigationLabel = 'Ejecutar checklist';
+    protected static ?string $navigationLabel = 'Checklist';
 
     public ?int $itemSeleccionadoId = null;
+
+    public string $filtro = 'pendientes';
 
     public ?int $fotoAmpliadaId = null;
 
     public ?string $observacionesTexto = null;
 
-    public $fotoAntes = null;
+    public ?string $motivoRechazoTexto = null;
 
-    public $fotoDespues = null;
+    public array $fotoAntes = [];
 
-    public function mount(int | string $record): void
+    public array $fotoDespues = [];
+
+    public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
 
@@ -64,13 +70,17 @@ class EjecutarChecklist extends Page
      * ninguno vía relaciones anidadas) agrupados por la categoría efectiva
      * de su trabajo_maestro (directa o vía subcategoría). Los items
      * manuales (sin trabajo_maestro_id) caen en la sección "Otros".
+     *
+     * Cada grupo se divide en 3 baldes según estado: pendientes (incluye
+     * rechazados, ya que requieren la misma acción del supervisor),
+     * enRevision (esperando aprobación de jefatura) y completados.
      */
     public function getSeccionesAgrupadas(): Collection
     {
         $checklist = $this->getChecklist();
 
         if (! $checklist) {
-            return new Collection();
+            return new Collection;
         }
 
         $items = ChecklistItem::query()
@@ -87,14 +97,33 @@ class EjecutarChecklist extends Page
                     'nombre' => $categoria?->nombre ?? 'Otros / Items manuales',
                     'color' => $categoria?->color,
                     'orden' => $categoria?->orden ?? PHP_INT_MAX,
-                    'pendientes' => $grupo->where('completado', false)->sortBy('orden')->values(),
-                    'completados' => $grupo->where('completado', true)->sortBy('orden')->values(),
+                    'pendientes' => $grupo->whereIn('estado', [EstadoChecklistItem::Pendiente, EstadoChecklistItem::Rechazado])->sortBy('orden')->values(),
+                    'enRevision' => $grupo->where('estado', EstadoChecklistItem::PendienteAprobacion)->sortBy('orden')->values(),
+                    'completados' => $grupo->where('estado', EstadoChecklistItem::Completado)->sortBy('orden')->values(),
                     'total' => $grupo->count(),
-                    'completadosCount' => $grupo->where('completado', true)->count(),
+                    'completadosCount' => $grupo->where('estado', EstadoChecklistItem::Completado)->count(),
                 ];
             })
             ->sortBy('orden')
             ->values();
+    }
+
+    public function setFiltro(string $filtro): void
+    {
+        $this->filtro = $filtro;
+    }
+
+    public function getSiguientePendiente(): ?ChecklistItem
+    {
+        /** @var Obra $obra */
+        $obra = $this->record;
+
+        return $obra->checklistPendientes()->first();
+    }
+
+    public function puedeAprobar(): bool
+    {
+        return auth()->user()?->hasAnyRole(['administrador', 'jefe_cuadrilla']) ?? false;
     }
 
     public function getItemSeleccionado(): ?ChecklistItem
@@ -103,22 +132,24 @@ class EjecutarChecklist extends Page
             return null;
         }
 
-        return ChecklistItem::with('fotos')->find($this->itemSeleccionadoId);
+        return ChecklistItem::with('fotos', 'aprobadoPor')->find($this->itemSeleccionadoId);
     }
 
     public function seleccionarItem(int $itemId): void
     {
         $this->itemSeleccionadoId = $itemId;
         $this->observacionesTexto = ChecklistItem::find($itemId)?->observaciones;
-        $this->fotoAntes = null;
-        $this->fotoDespues = null;
+        $this->motivoRechazoTexto = null;
+        $this->fotoAntes = [];
+        $this->fotoDespues = [];
     }
 
     public function volverALista(): void
     {
         $this->itemSeleccionadoId = null;
-        $this->fotoAntes = null;
-        $this->fotoDespues = null;
+        $this->motivoRechazoTexto = null;
+        $this->fotoAntes = [];
+        $this->fotoDespues = [];
     }
 
     public function getFotoAmpliada(): ?Foto
@@ -160,7 +191,44 @@ class EjecutarChecklist extends Page
             return;
         }
 
-        $item->update(['completado' => ! $item->completado]);
+        $item->update([
+            'estado' => $item->estado === EstadoChecklistItem::Completado
+                ? EstadoChecklistItem::Pendiente
+                : EstadoChecklistItem::Completado,
+        ]);
+    }
+
+    public function aprobarItem(): void
+    {
+        $item = $this->getItemSeleccionado();
+
+        if (! $item || ! $this->puedeAprobar() || $item->estado !== EstadoChecklistItem::PendienteAprobacion) {
+            return;
+        }
+
+        $item->aprobar(Auth::user());
+
+        Notification::make()->success()->title('Item aprobado')->send();
+    }
+
+    public function rechazarItem(): void
+    {
+        $item = $this->getItemSeleccionado();
+
+        if (! $item || ! $this->puedeAprobar() || $item->estado !== EstadoChecklistItem::PendienteAprobacion) {
+            return;
+        }
+
+        if (blank($this->motivoRechazoTexto)) {
+            Notification::make()->danger()->title('Hace falta indicar el motivo del rechazo')->send();
+
+            return;
+        }
+
+        $item->rechazar($this->motivoRechazoTexto);
+        $this->motivoRechazoTexto = null;
+
+        Notification::make()->danger()->title('Item rechazado')->send();
     }
 
     public function guardarObservaciones(): void
@@ -178,39 +246,41 @@ class EjecutarChecklist extends Page
 
     public function updatedFotoAntes(): void
     {
-        $this->procesarFoto('antes');
+        $this->procesarFotos('antes');
     }
 
     public function updatedFotoDespues(): void
     {
-        $this->procesarFoto('despues');
+        $this->procesarFotos('despues');
     }
 
-    protected function procesarFoto(string $momento): void
+    protected function procesarFotos(string $momento): void
     {
         $item = $this->getItemSeleccionado();
-        $archivo = $momento === 'antes' ? $this->fotoAntes : $this->fotoDespues;
+        $archivos = $momento === 'antes' ? $this->fotoAntes : $this->fotoDespues;
 
-        if (! $item || ! $item->requiere_foto || ! $archivo) {
+        if (! $item || ! $item->requiere_foto || $item->estado === EstadoChecklistItem::Completado || empty($archivos)) {
             return;
         }
 
-        $path = $archivo->store('checklist-fotos', 'public');
+        foreach ($archivos as $archivo) {
+            $path = $archivo->store('checklist-fotos', 'public');
 
-        Foto::create([
-            'checklist_item_id' => $item->id,
-            'momento' => $momento,
-            'url' => $path,
-            'subido_por' => Auth::id(),
-            'fecha_subida' => now(),
-        ]);
-
-        if ($momento === 'antes') {
-            $this->fotoAntes = null;
-        } else {
-            $this->fotoDespues = null;
+            Foto::create([
+                'checklist_item_id' => $item->id,
+                'momento' => $momento,
+                'url' => $path,
+                'subido_por' => Auth::id(),
+                'fecha_subida' => now(),
+            ]);
         }
 
-        Notification::make()->success()->title('Foto subida')->send();
+        if ($momento === 'antes') {
+            $this->fotoAntes = [];
+        } else {
+            $this->fotoDespues = [];
+        }
+
+        Notification::make()->success()->title(count($archivos) > 1 ? 'Fotos subidas' : 'Foto subida')->send();
     }
 }

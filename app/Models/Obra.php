@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\EstadoChecklistItem;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class Obra extends Model
 {
@@ -70,7 +72,7 @@ class Obra extends Model
         return $this->hasMany(Programacion::class);
     }
 
-    public function personalHoy(): \Illuminate\Support\Collection
+    public function personalHoy(): Collection
     {
         return Empleado::query()
             ->whereHas('programaciones', fn ($q) => $q
@@ -80,7 +82,7 @@ class Obra extends Model
             ->get();
     }
 
-    protected function itemsParaAvance(): \Illuminate\Support\Collection
+    protected function itemsParaAvance(): Collection
     {
         $checklist = $this->ordenTrabajo?->checklist;
 
@@ -104,7 +106,7 @@ class Obra extends Model
             return 0.0;
         }
 
-        $diasCompletados = $items->where('completado', true)->sum(fn (ChecklistItem $item) => $item->dias());
+        $diasCompletados = $items->where('estado', EstadoChecklistItem::Completado)->sum(fn (ChecklistItem $item) => $item->dias());
 
         return round(($diasCompletados / $diasTotales) * 100, 2);
     }
@@ -114,15 +116,20 @@ class Obra extends Model
         $items = $this->itemsParaAvance();
 
         return [
-            'listos' => $items->where('completado', true)->count(),
-            'pendientes' => $items->where('completado', false)->count(),
+            'listos' => $items->where('estado', EstadoChecklistItem::Completado)->count(),
+            'pendientes' => $items->where('estado', '!=', EstadoChecklistItem::Completado)->count(),
         ];
     }
 
-    public function checklistPendientes(): \Illuminate\Support\Collection
+    /**
+     * Items que requieren acción del supervisor: pendientes o rechazados.
+     * Los que están en pendiente_aprobacion ya no dependen de él, están
+     * esperando revisión de jefatura.
+     */
+    public function checklistPendientes(): Collection
     {
         return $this->itemsParaAvance()
-            ->where('completado', false)
+            ->whereIn('estado', [EstadoChecklistItem::Pendiente, EstadoChecklistItem::Rechazado])
             ->sortBy('orden')
             ->values();
     }
