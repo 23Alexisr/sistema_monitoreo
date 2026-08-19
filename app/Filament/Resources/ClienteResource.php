@@ -46,9 +46,30 @@ class ClienteResource extends Resource
                     ->helperText('Opcional. SVG recomendado (también admite PNG/JPG). Si no se sube, se muestran las iniciales del cliente.'),
                 Forms\Components\TextInput::make('nombre')
                     ->required()
+                    ->string()
+                    ->maxLength(255)
+                    ->dehydrateStateUsing(fn ($state) => ucwords(mb_strtolower(preg_replace('/\s+/', ' ', trim($state)))))
+                    ->extraInputAttributes([
+                        'x-on:keydown' => '
+                            if ($event.key === " " && ($event.target.value.slice(-1) === " " || $event.target.value.length === 0)) { 
+                                $event.preventDefault(); 
+                            }
+                        ',
+                        // ESTA LÍNEA HACE LA MAGIA EN TIEMPO REAL:
+                        'x-on:input' => '
+                            let val = $event.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ ]/g, "");
+                            $event.target.value = val.toLowerCase().replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase());
+                        ',
+                    ])
+                    ->regex('/^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+(\s[a-zA-ZáéíóúÁÉÍÓÚñÑ]+)*$/')
+                    ->validationMessages([
+                        'regex' => 'El nombre solo debe contener letras y espacios simples.',
+                    ])
                     ->live(onBlur: true),
                 Forms\Components\TextInput::make('ruc')
                     ->required()
+                    ->length(11)
+                    ->rules(['digits:11'])
                     ->unique(ignoreRecord: true),
                 Forms\Components\ColorPicker::make('color_marca')
                     ->label('Color de marca')
