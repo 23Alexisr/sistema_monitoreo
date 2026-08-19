@@ -41,6 +41,10 @@ class ChecklistItem extends Model
     protected static function booted(): void
     {
         static::creating(function (ChecklistItem $item) {
+            if (blank($item->checklist_id) && $item->parent_id) {
+                $item->checklist_id = static::find($item->parent_id)?->checklist_id;
+            }
+
             if ($item->trabajo_maestro_id && ! $item->descripcion) {
                 $maestro = TrabajoMaestro::find($item->trabajo_maestro_id);
 
@@ -111,6 +115,11 @@ class ChecklistItem extends Model
     public function categoriaEfectiva(): ?CategoriaTrabajo
     {
         return $this->trabajoMaestro?->categoriaEfectiva();
+    }
+
+    public function subcategoriaEfectiva(): ?SubcategoriaTrabajo
+    {
+        return $this->trabajoMaestro?->subcategoria;
     }
 
     public function tieneFotoAntes(): bool

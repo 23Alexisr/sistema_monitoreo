@@ -38,6 +38,12 @@
             </svg>
         @endif
 
+        @if ($contador = ($contadoresRepeticion[$item->id] ?? null))
+            <span style="flex-shrink: 0; font-size: 11px; font-weight: 700; color: #9ca3af; white-space: nowrap;">
+                {{ $contador }}
+            </span>
+        @endif
+
         <span style="flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: {{ $item->estado === EstadoChecklistItem::Completado ? '#9ca3af' : '#111827' }}; text-decoration: {{ $item->estado === EstadoChecklistItem::Completado ? 'line-through' : 'none' }}; overflow-wrap: break-word;">
             {{ $item->descripcion }}
         </span>

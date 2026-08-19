@@ -71,9 +71,12 @@ class EjecutarChecklist extends Page
      * de su trabajo_maestro (directa o vía subcategoría). Los items
      * manuales (sin trabajo_maestro_id) caen en la sección "Otros".
      *
-     * Cada grupo se divide en 3 baldes según estado: pendientes (incluye
-     * rechazados, ya que requieren la misma acción del supervisor),
-     * enRevision (esperando aprobación de jefatura) y completados.
+     * Dentro de cada categoría, si al menos un item tiene subcategoría,
+     * se arma un segundo nivel ('subgrupos'): los items sin subcategoría
+     * van primero (sin encabezado propio), luego cada subcategoría en uso
+     * con su propio encabezado. Si ninguna categoría tiene subcategorías
+     * en juego, 'subgrupos' queda null y la vista se muestra plana, igual
+     * que antes.
      */
     public function getSeccionesAgrupadas(): Collection
     {
@@ -92,25 +95,88 @@ class EjecutarChecklist extends Page
             ->groupBy(fn (ChecklistItem $item) => $item->categoriaEfectiva()?->id ?? 'otros')
             ->map(function (Collection $grupo) {
                 $categoria = $grupo->first()->categoriaEfectiva();
+                $tieneSubcategorias = $grupo->contains(fn (ChecklistItem $item) => $item->subcategoriaEfectiva() !== null);
+
+                $subgrupos = $tieneSubcategorias
+                    ? $grupo
+                        ->groupBy(fn (ChecklistItem $item) => $item->subcategoriaEfectiva()?->id ?? 'general')
+                        ->map(function (Collection $sub) {
+                            $subcategoria = $sub->first()->subcategoriaEfectiva();
+
+                            return static::empaquetarItems($sub, $subcategoria?->nombre, $subcategoria?->orden ?? -1);
+                        })
+                        ->sortBy('orden')
+                        ->values()
+                    : null;
 
                 return [
-                    'nombre' => $categoria?->nombre ?? 'Otros / Items manuales',
+                    ...static::empaquetarItems($grupo, $categoria?->nombre ?? 'Otros / Items manuales', $categoria?->orden ?? PHP_INT_MAX),
                     'color' => $categoria?->color,
-                    'orden' => $categoria?->orden ?? PHP_INT_MAX,
-                    'pendientes' => $grupo->whereIn('estado', [EstadoChecklistItem::Pendiente, EstadoChecklistItem::Rechazado])->sortBy('orden')->values(),
-                    'enRevision' => $grupo->where('estado', EstadoChecklistItem::PendienteAprobacion)->sortBy('orden')->values(),
-                    'completados' => $grupo->where('estado', EstadoChecklistItem::Completado)->sortBy('orden')->values(),
-                    'total' => $grupo->count(),
-                    'completadosCount' => $grupo->where('estado', EstadoChecklistItem::Completado)->count(),
+                    'subgrupos' => $subgrupos,
                 ];
             })
             ->sortBy('orden')
             ->values();
     }
 
+    /**
+     * @param  Collection<int, ChecklistItem>  $grupo
+     */
+    protected static function empaquetarItems(Collection $grupo, ?string $nombre, int $orden): array
+    {
+        return [
+            'nombre' => $nombre,
+            'orden' => $orden,
+            'pendientes' => $grupo->whereIn('estado', [EstadoChecklistItem::Pendiente, EstadoChecklistItem::Rechazado])->sortBy('orden')->values(),
+            'enRevision' => $grupo->where('estado', EstadoChecklistItem::PendienteAprobacion)->sortBy('orden')->values(),
+            'completados' => $grupo->where('estado', EstadoChecklistItem::Completado)->sortBy('orden')->values(),
+            'total' => $grupo->count(),
+            'completadosCount' => $grupo->where('estado', EstadoChecklistItem::Completado)->count(),
+        ];
+    }
+
     public function setFiltro(string $filtro): void
     {
         $this->filtro = $filtro;
+    }
+
+    /**
+     * Para items cuya descripción se repite en 2 o más dentro de este
+     * checklist (comparación exacta), arma un texto "N de M" que refleja
+     * la posición del item DENTRO de su propio grupo de duplicados
+     * (ordenados por su campo orden), no su orden global en el checklist.
+     * Items con descripción única no aparecen en el array devuelto.
+     *
+     * @return array<int, string> item_id => "N de M"
+     */
+    public function contadoresRepeticion(): array
+    {
+        $checklist = $this->getChecklist();
+
+        if (! $checklist) {
+            return [];
+        }
+
+        $items = ChecklistItem::where('checklist_id', $checklist->id)
+            ->orderBy('orden')
+            ->get(['id', 'descripcion', 'orden']);
+
+        $contadores = [];
+
+        $items->groupBy('descripcion')->each(function (Collection $grupo) use (&$contadores) {
+            if ($grupo->count() < 2) {
+                return;
+            }
+
+            $ordenados = $grupo->sortBy('orden')->values();
+            $total = $ordenados->count();
+
+            $ordenados->each(function (ChecklistItem $item, int $indice) use (&$contadores, $total) {
+                $contadores[$item->id] = ($indice + 1).' de '.$total;
+            });
+        });
+
+        return $contadores;
     }
 
     public function getSiguientePendiente(): ?ChecklistItem

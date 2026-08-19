@@ -12,6 +12,7 @@
     $fotoAmpliada = $this->getFotoAmpliada();
     $siguientePendiente = $this->getSiguientePendiente();
     $puedeAprobar = $this->puedeAprobar();
+    $contadoresRepeticion = $this->contadoresRepeticion();
     /** @var \App\Models\Obra $obra */
     $obra = $this->record;
 
@@ -289,6 +290,7 @@
                             'totalGeneral' => $totalGeneral,
                             'completadosGeneral' => $completadosGeneral,
                             'siguientePendiente' => $siguientePendiente,
+                            'contadoresRepeticion' => $contadoresRepeticion,
                         ])
                     </div>
                 </details>
@@ -331,15 +333,20 @@
                 @else
                     @foreach ($secciones as $seccion)
                         @php
-                            $itemsMostrar = match ($filtro) {
-                                'en_revision' => $seccion['enRevision'],
-                                'completados' => $seccion['completados'],
-                                'todos' => $seccion['pendientes']->concat($seccion['enRevision'])->concat($seccion['completados']),
-                                default => $seccion['pendientes'],
+                            $filtrarBloque = fn ($bloque) => match ($filtro) {
+                                'en_revision' => $bloque['enRevision'],
+                                'completados' => $bloque['completados'],
+                                'todos' => $bloque['pendientes']->concat($bloque['enRevision'])->concat($bloque['completados']),
+                                default => $bloque['pendientes'],
                             };
+
+                            $bloques = ($seccion['subgrupos'] ?? collect([$seccion]))
+                                ->map(fn ($bloque) => [...$bloque, 'itemsMostrar' => $filtrarBloque($bloque)])
+                                ->filter(fn ($bloque) => $bloque['itemsMostrar']->isNotEmpty())
+                                ->values();
                         @endphp
 
-                        @continue($itemsMostrar->isEmpty())
+                        @continue($bloques->isEmpty())
 
                         <div style="margin-bottom: 20px;">
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-left: 2px;">
@@ -350,11 +357,19 @@
                                 </span>
                             </div>
 
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                @foreach ($itemsMostrar as $item)
-                                    @include('filament.resources.obra-resource.pages.partials.checklist-item-row', ['item' => $item, 'color' => $seccion['color'] ?? '#9CA3AF'])
-                                @endforeach
-                            </div>
+                            @foreach ($bloques as $bloque)
+                                @if ($seccion['subgrupos'] && $bloque['nombre'])
+                                    <div style="margin: 10px 0 6px 14px; font-size: 11.5px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em;">
+                                        {{ $bloque['nombre'] }}
+                                    </div>
+                                @endif
+
+                                <div style="display: flex; flex-direction: column; gap: 8px; {{ $seccion['subgrupos'] && $bloque['nombre'] ? 'padding-left: 14px;' : '' }}">
+                                    @foreach ($bloque['itemsMostrar'] as $item)
+                                        @include('filament.resources.obra-resource.pages.partials.checklist-item-row', ['item' => $item, 'color' => $seccion['color'] ?? '#9CA3AF', 'contadoresRepeticion' => $contadoresRepeticion])
+                                    @endforeach
+                                </div>
+                            @endforeach
                         </div>
                     @endforeach
                 @endif
@@ -367,6 +382,7 @@
                     'totalGeneral' => $totalGeneral,
                     'completadosGeneral' => $completadosGeneral,
                     'siguientePendiente' => $siguientePendiente,
+                    'contadoresRepeticion' => $contadoresRepeticion,
                 ])
             </div>
         </div>

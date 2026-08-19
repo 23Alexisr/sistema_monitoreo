@@ -35,6 +35,57 @@
      * afectados por este override de vista.
      */
     $isColoredRepeater = method_exists($field, 'getItemColor');
+
+    /**
+     * Agrupación por categoría/subcategoría del trabajo_maestro efectivo de
+     * cada item, mismo criterio que EjecutarChecklist::getSeccionesAgrupadas():
+     * items sin subcategoría primero (sin sub-encabezado), luego cada
+     * subcategoría en uso. Solo se activa si el campo lo pide explícitamente
+     * vía ->agruparPorCategoria() (evita afectar el Repeater 'children').
+     */
+    $agrupar = method_exists($field, 'debeAgruparPorCategoria') && $field->debeAgruparPorCategoria();
+
+    $metaPorUuid = collect();
+    $categoriasConSubcategoria = [];
+    $orderedUuids = collect($containers)->keys();
+
+    if ($agrupar) {
+        $metaPorUuid = $orderedUuids->mapWithKeys(function (string $uuid) use ($field) {
+            $state = $field->getRawItemState($uuid);
+            $trabajoId = $state['trabajo_maestro_id'] ?? null;
+            $maestro = $trabajoId
+                ? \App\Models\TrabajoMaestro::with(['categoria', 'subcategoria.categoria'])->find($trabajoId)
+                : null;
+            $categoria = $maestro?->categoriaEfectiva();
+            $subcategoria = $maestro?->subcategoria;
+
+            return [$uuid => [
+                'categoriaId' => $categoria?->id ?? 'otros',
+                'categoriaNombre' => $categoria?->nombre ?? 'Otros / Items manuales',
+                'categoriaColor' => $categoria?->color,
+                'categoriaOrden' => $categoria?->orden ?? PHP_INT_MAX,
+                'subcategoriaId' => $subcategoria?->id,
+                'subcategoriaNombre' => $subcategoria?->nombre,
+                'subcategoriaOrden' => $subcategoria?->orden ?? -1,
+                'itemOrden' => (int) ($state['orden'] ?? 0),
+            ]];
+        });
+
+        $categoriasConSubcategoria = $metaPorUuid
+            ->groupBy('categoriaId')
+            ->map(fn ($grupo) => $grupo->contains(fn ($fila) => filled($fila['subcategoriaId'])))
+            ->filter()
+            ->keys()
+            ->all();
+
+        $orderedUuids = $metaPorUuid
+            ->sortBy([
+                fn ($a, $b) => $a['categoriaOrden'] <=> $b['categoriaOrden'],
+                fn ($a, $b) => $a['subcategoriaOrden'] <=> $b['subcategoriaOrden'],
+                fn ($a, $b) => $a['itemOrden'] <=> $b['itemOrden'],
+            ])
+            ->keys();
+    }
 @endphp
 
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field">
@@ -85,7 +136,32 @@
                     :data-sortable-animation-duration="$getReorderAnimationDuration()"
                     class="items-start gap-4"
                 >
-                    @foreach ($containers as $uuid => $item)
+                    @foreach ($orderedUuids as $uuid)
+                        @php
+                            $item = $containers[$uuid];
+                            $metaActual = $agrupar ? $metaPorUuid[$uuid] : null;
+                            $metaAnterior = ($agrupar && ! $loop->first) ? $metaPorUuid[$orderedUuids[$loop->index - 1]] : null;
+                            $cambioCategoria = $agrupar && ($metaAnterior === null || $metaAnterior['categoriaId'] !== $metaActual['categoriaId']);
+                            $cambioSubcategoria = $agrupar && ($cambioCategoria || $metaAnterior['subcategoriaId'] !== $metaActual['subcategoriaId']);
+                            $enSubcategoria = $agrupar && $metaActual['subcategoriaId'] && in_array($metaActual['categoriaId'], $categoriasConSubcategoria, true);
+                        @endphp
+
+                        @if ($cambioCategoria)
+                            <li style="list-style: none; display: flex; align-items: center; gap: 8px; margin: {{ $loop->first ? '0' : '18' }}px 0 8px; padding-left: 2px;">
+                                <span style="width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; background: {{ $metaActual['categoriaColor'] ?? '#9CA3AF' }};"></span>
+                                <span style="font-size: 13.5px; font-weight: 700; color: #111827;">{{ $metaActual['categoriaNombre'] }}</span>
+                                <span style="font-size: 12px; color: #6b7280;">
+                                    ({{ $metaPorUuid->where('categoriaId', $metaActual['categoriaId'])->count() }} items)
+                                </span>
+                            </li>
+                        @endif
+
+                        @if ($enSubcategoria && $cambioSubcategoria)
+                            <li style="list-style: none; margin: 8px 0 6px 14px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;">
+                                {{ $metaActual['subcategoriaNombre'] }}
+                            </li>
+                        @endif
+
                         @php
                             $itemLabel = $getItemLabel($uuid);
                             $itemColor = $isColoredRepeater ? ($field->getItemColor($uuid) ?? '#9CA3AF') : null;
@@ -120,6 +196,7 @@
                                 'divide-y divide-gray-100 dark:divide-white/10' => ! $isColoredRepeater,
                             ])
                             x-bind:class="{ 'fi-collapsed': isCollapsed }"
+                            @if ($enSubcategoria) style="margin-left: 14px;" @endif
                         >
                             @if ($isColoredRepeater)
                                 <div

@@ -43,6 +43,9 @@
         <p style="margin: 10px 0 0; font-size: 12.5px; color: #6b7280;">
             {{ $completadosGeneral }} de {{ $totalGeneral }} completados
         </p>
+        <p style="margin: 2px 0 0; font-size: 10.5px; color: #9ca3af;">
+            Ponderado por días estimados de cada trabajo
+        </p>
     </div>
 
     {{-- Tarjeta por categoría --}}
@@ -62,6 +65,20 @@
                         {{ $seccion['completadosCount'] }}/{{ $seccion['total'] }}
                     </span>
                 </div>
+
+                @if ($seccion['subgrupos'])
+                    @foreach ($seccion['subgrupos'] as $subgrupo)
+                        @continue(! $subgrupo['nombre'])
+                        <div style="display: flex; align-items: center; gap: 8px; padding-left: 16px;">
+                            <span style="flex: 1; min-width: 0; font-size: 11.5px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ $subgrupo['nombre'] }}
+                            </span>
+                            <span style="flex-shrink: 0; font-size: 11px; font-weight: 600; color: #9ca3af;">
+                                {{ $subgrupo['completadosCount'] }}/{{ $subgrupo['total'] }}
+                            </span>
+                        </div>
+                    @endforeach
+                @endif
             @empty
                 <p style="margin: 0; font-size: 12.5px; color: #9ca3af;">Sin categorías.</p>
             @endforelse
@@ -76,6 +93,9 @@
 
         @if ($siguientePendiente)
             <p style="margin: 0 0 12px; font-size: 13.5px; font-weight: 600; color: #111827; overflow-wrap: break-word;">
+                @if ($contador = ($contadoresRepeticion[$siguientePendiente->id] ?? null))
+                    <span style="color: #9ca3af; font-weight: 700; font-size: 11.5px;">{{ $contador }}</span>
+                @endif
                 {{ $siguientePendiente->descripcion }}
             </p>
 

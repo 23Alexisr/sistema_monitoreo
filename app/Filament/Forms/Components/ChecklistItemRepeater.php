@@ -12,9 +12,11 @@ use Filament\Forms\Components\Repeater;
  */
 class ChecklistItemRepeater extends Repeater
 {
-    protected string | Closure | null $itemColor = null;
+    protected string|Closure|null $itemColor = null;
 
-    public function itemColor(string | Closure | null $color): static
+    protected bool $agruparPorCategoria = false;
+
+    public function itemColor(string|Closure|null $color): static
     {
         $this->itemColor = $color;
 
@@ -27,5 +29,23 @@ class ChecklistItemRepeater extends Repeater
             'state' => $this->getRawItemState($uuid),
             'uuid' => $uuid,
         ]);
+    }
+
+    /**
+     * Cuando está activo, la vista publicada del Repeater
+     * (resources/views/vendor/filament-forms/components/repeater/index.blade.php)
+     * reordena y agrupa los items por categoría/subcategoría efectiva de
+     * su trabajo_maestro, con el mismo criterio que EjecutarChecklist.
+     */
+    public function agruparPorCategoria(bool $condition = true): static
+    {
+        $this->agruparPorCategoria = $condition;
+
+        return $this;
+    }
+
+    public function debeAgruparPorCategoria(): bool
+    {
+        return $this->agruparPorCategoria;
     }
 }
