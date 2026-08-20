@@ -9,6 +9,7 @@ use Filament\Models\Contracts\HasAvatar;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -64,9 +65,14 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
         return $this->hasMany(Foto::class, 'subido_por');
     }
 
+    public function obrasComoJefeProyecto(): BelongsToMany
+    {
+        return $this->belongsToMany(Obra::class, 'obra_jefe_proyecto', 'jefe_proyecto_id', 'obra_id');
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(['administrador', 'supervisor', 'jefe_cuadrilla', 'operario']);
+        return $this->hasAnyRole(['administrador', 'jefe_planta', 'jefe_ssoma', 'jefe_proyectos', 'almacen', 'despacho', 'operario']);
     }
 
     public function getFilamentName(): string

@@ -18,6 +18,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'ver-ot',
             'ver-fotos',
             'gestionar-checklist',
+            'aprobar-checklist',
             'mover-personal',
             'eliminar-items',
         ];
@@ -28,24 +29,32 @@ class RolesAndPermissionsSeeder extends Seeder
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $jefeCuadrilla = Role::findOrCreate('jefe_cuadrilla');
-        $jefeCuadrilla->syncPermissions([
-            'ver-documentos',
-            'ver-ot',
-            'ver-fotos',
-        ]);
+        $administrador = Role::findOrCreate('administrador');
+        $administrador->syncPermissions(Permission::all());
 
-        $supervisor = Role::findOrCreate('supervisor');
-        $supervisor->syncPermissions([
+        $jefePlanta = Role::findOrCreate('jefe_planta');
+        $jefePlanta->syncPermissions([
             'ver-documentos',
             'ver-ot',
             'ver-fotos',
             'gestionar-checklist',
+            'aprobar-checklist',
         ]);
 
-        $administrador = Role::findOrCreate('administrador');
-        $administrador->syncPermissions(Permission::all());
-
         Role::findOrCreate('operario');
+        Role::findOrCreate('almacen');
+        Role::findOrCreate('despacho');
+
+        // jefe_proyectos y jefe_ssoma ya tienen lógica activa (aprobar
+        // requerimientos de señalética/seguridad respectivamente) pero sin
+        // permisos symlink propios todavía, ya que el patrón del repo gatea
+        // por rol (hasRole), no por permission.
+        Role::findOrCreate('jefe_proyectos');
+        Role::findOrCreate('jefe_ssoma');
+
+        // Roles futuros: creados sin permisos activos, listos para activarse
+        // en una fase posterior sin necesidad de rediseño.
+        Role::findOrCreate('asistente');
+        Role::findOrCreate('supervisor');
     }
 }
