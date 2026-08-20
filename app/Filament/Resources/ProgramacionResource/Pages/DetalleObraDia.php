@@ -20,9 +20,49 @@ class DetalleObraDia extends Page
 
     public string $fecha;
 
+    /**
+     * ProgramacionResource::canViewAny() bloquea operario por completo (lo
+     * usan ListProgramacions/CreateProgramacion/EditarGrupoDia, que deben
+     * seguir bloqueados). Esta página sí debe ser alcanzable por un
+     * operario/encargado asignado a la obra, así que se anula el gate
+     * automático de recurso (CanAuthorizeResourceAccess) y se reemplaza por
+     * canAccess() propio, mismo patrón que EjecutarChecklist.
+     */
+    public function mountCanAuthorizeResourceAccess(): void
+    {
+        //
+    }
+
+    public function hydrateCanAuthorizeResourceAccess(): void
+    {
+        //
+    }
+
+    public static function canAccess(array $parameters = []): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['administrador', 'jefe_planta'])) {
+            return true;
+        }
+
+        if (! $user->hasRole('operario')) {
+            return false;
+        }
+
+        $obraId = $parameters['obra'] ?? null;
+        $obra = $obraId instanceof Obra ? $obraId : ($obraId ? Obra::find($obraId) : null);
+
+        return $obra instanceof Obra && $obra->asignadaAOperario($user);
+    }
+
     public function mount(int $obra, string $fecha): void
     {
-        abort_if(auth()->user()?->hasRole('operario'), 403);
+        abort_unless(static::canAccess(['obra' => $obra]), 403);
 
         $this->obraRecord = Obra::query()->with('cliente')->findOrFail($obra);
         $this->fecha = $fecha;

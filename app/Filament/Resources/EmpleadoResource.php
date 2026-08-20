@@ -73,6 +73,7 @@ class EmpleadoResource extends Resource
                         'conductor' => 'Conductor',
                         'instalador' => 'Instalador',
                         'pintor' => 'Pintor',
+                        'vinilero' => 'Vinilero',
                         'auxiliar' => 'Auxiliar',
                     ])
                     ->native(false)
@@ -112,8 +113,13 @@ class EmpleadoResource extends Resource
                     ->label('Rol en el sistema')
                     ->options([
                         'administrador' => 'Administrador',
+                        'jefe_planta' => 'Jefe de planta',
+                        'jefe_proyectos' => 'Jefe de proyectos',
+                        'jefe_ssoma' => 'Jefe SSOMA',
+                        'asistente' => 'Asistente',
                         'supervisor' => 'Supervisor',
-                        'jefe_cuadrilla' => 'Jefe de cuadrilla',
+                        'almacen' => 'Almacén',
+                        'despacho' => 'Despacho',
                         'operario' => 'Operario',
                     ])
                     ->nullable()
@@ -199,15 +205,25 @@ class EmpleadoResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'administrador' => 'Administrador',
+                        'jefe_planta' => 'Jefe de planta',
+                        'jefe_proyectos' => 'Jefe de proyectos',
+                        'jefe_ssoma' => 'Jefe SSOMA',
+                        'asistente' => 'Asistente',
                         'supervisor' => 'Supervisor',
-                        'jefe_cuadrilla' => 'Jefe de cuadrilla',
+                        'almacen' => 'Almacén',
+                        'despacho' => 'Despacho',
                         'operario' => 'Operario',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
                         'administrador' => 'danger',
+                        'jefe_planta' => 'info',
+                        'jefe_proyectos' => 'info',
+                        'jefe_ssoma' => 'info',
+                        'asistente' => 'warning',
                         'supervisor' => 'warning',
-                        'jefe_cuadrilla' => 'info',
+                        'almacen' => 'warning',
+                        'despacho' => 'warning',
                         'operario' => 'success',
                         default => 'gray',
                     })

@@ -16,6 +16,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 
@@ -34,6 +35,8 @@ class EditarGrupoDia extends Page
     public Obra $obraRecord;
 
     public string $fecha;
+
+    public string $busquedaEmpleado = '';
 
     public function mount(int $obra, string $fecha): void
     {
@@ -67,6 +70,39 @@ class EditarGrupoDia extends Page
     public function getTitle(): string
     {
         return 'Editar personal · '.$this->obraRecord->nombre;
+    }
+
+    /**
+     * @return Collection<int, Empleado>
+     */
+    public function resultadosBusquedaEmpleados(): Collection
+    {
+        $termino = trim($this->busquedaEmpleado);
+
+        if ($termino === '') {
+            return collect();
+        }
+
+        $seleccionados = $this->data['empleado_ids'] ?? [];
+
+        return Empleado::query()
+            ->where('estado', 'activo')
+            ->whereNotIn('id', $seleccionados)
+            ->where('nombre_completo', 'like', "%{$termino}%")
+            ->orderBy('nombre_completo')
+            ->limit(20)
+            ->get();
+    }
+
+    public function agregarEmpleado(int $empleadoId): void
+    {
+        $ids = $this->data['empleado_ids'] ?? [];
+
+        if (! in_array($empleadoId, $ids, true)) {
+            $this->data['empleado_ids'] = [...$ids, $empleadoId];
+        }
+
+        $this->busquedaEmpleado = '';
     }
 
     public function form(Form $form): Form
@@ -176,12 +212,22 @@ class EditarGrupoDia extends Page
                         // Columna derecha
                         Forms\Components\Group::make([
                             static::seccionLabel('Personal'),
+                            Forms\Components\View::make('filament.resources.programacion-resource.pages.partials.buscador-empleados')
+                                ->viewData(fn () => [
+                                    'busqueda' => $this->busquedaEmpleado,
+                                    'resultados' => $this->resultadosBusquedaEmpleados(),
+                                ])
+                                ->columnSpanFull(),
                             Forms\Components\CheckboxList::make('empleado_ids')
                                 ->hiddenLabel()
                                 ->options(function (Get $get) {
+                                    $ids = $get('empleado_ids') ?? [];
                                     $conductorId = $get('conductor_id');
 
-                                    return static::empleadosActivos()
+                                    return Empleado::query()
+                                        ->whereIn('id', $ids)
+                                        ->orderBy('nombre_completo')
+                                        ->get()
                                         ->mapWithKeys(function (Empleado $empleado) use ($conductorId) {
                                             $badge = ($conductorId && (int) $empleado->id === (int) $conductorId)
                                                 ? '<span style="display:inline-block;margin-left:6px;border-radius:999px;background:#DBEAFE;color:#1E40AF;padding:1px 7px;font-size:10px;font-weight:700;">Conductor</span>'
@@ -196,12 +242,17 @@ class EditarGrupoDia extends Page
                                             ];
                                         });
                                 })
-                                ->descriptions(fn () => static::empleadosActivos()
-                                    ->mapWithKeys(fn (Empleado $empleado) => [
-                                        $empleado->id => static::especialidadLabels()[$empleado->especialidad] ?? ($empleado->especialidad ?? ''),
-                                    ]))
+                                ->descriptions(function (Get $get) {
+                                    $ids = $get('empleado_ids') ?? [];
+
+                                    return Empleado::query()
+                                        ->whereIn('id', $ids)
+                                        ->get()
+                                        ->mapWithKeys(fn (Empleado $empleado) => [
+                                            $empleado->id => static::especialidadLabels()[$empleado->especialidad] ?? ($empleado->especialidad ?? ''),
+                                        ]);
+                                })
                                 ->allowHtml()
-                                ->searchable()
                                 ->bulkToggleable()
                                 ->columns(1)
                                 ->required()

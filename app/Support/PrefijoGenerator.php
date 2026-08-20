@@ -67,6 +67,8 @@ class PrefijoGenerator
     private static function existe(string $prefijo): bool
     {
         return DB::table('categorias_trabajo')->where('prefijo', $prefijo)->exists()
-            || DB::table('subcategorias_trabajo')->where('prefijo', $prefijo)->exists();
+            || DB::table('subcategorias_trabajo')->where('prefijo', $prefijo)->exists()
+            || DB::table('categorias_material')->where('prefijo', $prefijo)->exists()
+            || DB::table('subcategorias_material')->where('prefijo', $prefijo)->exists();
     }
 }

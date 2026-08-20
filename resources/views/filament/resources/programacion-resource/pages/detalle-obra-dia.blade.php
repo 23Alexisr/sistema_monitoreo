@@ -1,4 +1,6 @@
 @php
+    $esOperario = auth()->user()?->hasRole('operario') ?? false;
+    $puedePedirMateriales = \App\Support\PermisoRequerimiento::puedeCrear(auth()->user(), $obraRecord->id);
     $registros = $this->getRegistros();
     $vehiculo = $this->getVehiculo();
     $horaMin = $this->getHoraMin();
@@ -38,6 +40,7 @@
         'conductor' => 'Conductor',
         'instalador' => 'Instalador',
         'pintor' => 'Pintor',
+        'vinilero' => 'Vinilero',
         'auxiliar' => 'Auxiliar',
     ];
 
@@ -46,6 +49,7 @@
         'conductor' => 'heroicon-o-truck',
         'instalador' => 'heroicon-o-wrench-screwdriver',
         'pintor' => 'heroicon-o-paint-brush',
+        'vinilero' => 'heroicon-o-swatch',
         'auxiliar' => 'heroicon-o-user',
     ];
 @endphp
@@ -69,14 +73,14 @@
     <div style="max-width: 1100px; margin: 0 auto;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px;">
             <a
-                href="{{ \App\Filament\Resources\ProgramacionResource::getUrl('index', ['fecha' => $fecha]) }}"
+                href="{{ $esOperario ? \App\Filament\Resources\ObraResource::getUrl('index') : \App\Filament\Resources\ProgramacionResource::getUrl('index', ['fecha' => $fecha]) }}"
                 style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 8px 0; font-size: 14px; font-weight: 600; color: #6b7280;"
             >
                 <x-heroicon-o-arrow-left style="width: 18px; height: 18px;" />
-                Volver a programación
+                {{ $esOperario ? 'Volver a mis obras' : 'Volver a programación' }}
             </a>
 
-            @if ($registros->isNotEmpty())
+            @if ($registros->isNotEmpty() && ! $esOperario)
                 <a
                     href="{{ \App\Filament\Resources\ProgramacionResource::getUrl('editar-grupo', ['obra' => $obraRecord->id, 'fecha' => $fecha]) }}"
                     style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border-radius: 8px; border: 1px solid #e5e7eb; padding: 7px 12px; font-size: 13px; font-weight: 600; color: #374151;"
@@ -277,6 +281,16 @@
                     >
                         Ver checklist completo
                     </a>
+
+                    @if ($puedePedirMateriales)
+                        <a
+                            href="{{ \App\Filament\Resources\RequerimientoResource::getUrl('create', ['obra_id' => $obraRecord->id, 'tipo' => 'material']) }}"
+                            style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; background: #F59E0B; color: #ffffff; text-decoration: none; padding: 10px; font-size: 13.5px; font-weight: 600;"
+                        >
+                            <x-heroicon-o-cube style="width: 16px; height: 16px;" />
+                            Pedir materiales
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>

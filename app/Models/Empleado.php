@@ -12,7 +12,7 @@ class Empleado extends Model
 {
     use HasFactory;
 
-    public const ROLES_OBRA = ['supervisor', 'jefe_cuadrilla', 'operario'];
+    public const ROLES_OBRA = ['jefe_planta', 'operario'];
 
     protected $fillable = [
         'user_id',

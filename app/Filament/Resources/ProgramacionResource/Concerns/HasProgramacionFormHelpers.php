@@ -18,6 +18,7 @@ trait HasProgramacionFormHelpers
             'conductor' => 'Conductor',
             'instalador' => 'Instalador',
             'pintor' => 'Pintor',
+            'vinilero' => 'Vinilero',
             'auxiliar' => 'Auxiliar',
         ];
     }
