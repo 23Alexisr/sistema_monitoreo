@@ -7,7 +7,8 @@
     $personal = $obra->personalHoy();
     $visibles = $personal->take(4);
     $restantes = $personal->count() - $visibles->count();
-    $puedeVerDetalle = \App\Filament\Resources\ObraResource::canEdit($obra);
+    $puedeVerDetalle = \App\Filament\Resources\ObraResource::canEdit($obra)
+        || \App\Filament\Resources\ObraResource\Pages\EjecutarChecklist::canAccess(['record' => $obra]);
 
     $estadoLabels = [
         'pendiente' => 'Pendiente',
@@ -17,13 +18,11 @@
     ];
 
     $rolColores = [
-        'supervisor' => '#F59E0B',
-        'jefe_cuadrilla' => '#0EA5E9',
+        'jefe_planta' => '#0EA5E9',
         'operario' => '#10B981',
     ];
     $rolLabels = [
-        'supervisor' => 'Supervisor',
-        'jefe_cuadrilla' => 'Jefe de cuadrilla',
+        'jefe_planta' => 'Jefe de planta',
         'operario' => 'Operario',
     ];
 
@@ -115,11 +114,19 @@
     </div>
 
     @if ($puedeVerDetalle)
-        <a
-            href="{{ \App\Filament\Resources\ObraResource::getUrl('checklist-ejecutar', ['record' => $obra]) }}"
-            style="display: block; border-top: 1px solid #f0f0f0; padding: 10px 16px; text-align: center; font-size: 12.5px; font-weight: 600; color: #374151; text-decoration: none;"
-        >
-            Ver detalle
-        </a>
+        <div style="display: flex; border-top: 1px solid #f0f0f0;">
+            <a
+                href="{{ \App\Filament\Resources\ObraResource::getUrl('checklist-ejecutar', ['record' => $obra]) }}"
+                style="flex: 1; display: block; padding: 10px 16px; text-align: center; font-size: 12.5px; font-weight: 600; color: #374151; text-decoration: none;"
+            >
+                Ver detalle
+            </a>
+            <a
+                href="{{ \App\Filament\Resources\ProgramacionResource::getUrl('detalle', ['obra' => $obra->id, 'fecha' => now()->toDateString()]) }}"
+                style="flex: 1; display: block; border-left: 1px solid #f0f0f0; padding: 10px 16px; text-align: center; font-size: 12.5px; font-weight: 600; color: #374151; text-decoration: none;"
+            >
+                Programación de hoy
+            </a>
+        </div>
     @endif
 </div>

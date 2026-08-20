@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
@@ -70,6 +71,23 @@ class Obra extends Model
     public function programaciones(): HasMany
     {
         return $this->hasMany(Programacion::class);
+    }
+
+    public function requerimientos(): HasMany
+    {
+        return $this->hasMany(Requerimiento::class);
+    }
+
+    public function jefesProyecto(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'obra_jefe_proyecto', 'obra_id', 'jefe_proyecto_id');
+    }
+
+    public function asignadaAOperario(User $user): bool
+    {
+        return $this->programaciones()
+            ->whereHas('empleado', fn ($q) => $q->where('user_id', $user->id))
+            ->exists();
     }
 
     public function personalHoy(): Collection

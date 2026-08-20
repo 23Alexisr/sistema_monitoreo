@@ -7,14 +7,12 @@
 
     $rolLabels = [
         'administrador' => 'Administrador',
-        'supervisor' => 'Supervisor',
-        'jefe_cuadrilla' => 'Jefe de cuadrilla',
+        'jefe_planta' => 'Jefe de planta',
         'operario' => 'Operario',
     ];
     $rolColores = [
         'administrador' => '#DC2626',
-        'supervisor' => '#F59E0B',
-        'jefe_cuadrilla' => '#0EA5E9',
+        'jefe_planta' => '#0EA5E9',
         'operario' => '#10B981',
     ];
 @endphp
