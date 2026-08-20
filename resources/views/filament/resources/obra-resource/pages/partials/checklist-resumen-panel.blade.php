@@ -1,4 +1,5 @@
 @php
+    $puedePedirMateriales = \App\Support\PermisoRequerimiento::puedeCrear(auth()->user(), $obra->id);
     $cliente = $obra->cliente;
     $colorCliente = $cliente?->colorMarca() ?? \App\Models\Cliente::COLOR_MARCA_DEFECTO;
     $colorClienteOscuro = $cliente?->colorMarcaOscuro() ?? '#374151';
@@ -112,5 +113,54 @@
                 ✅ No quedan items pendientes.
             </p>
         @endif
+    </div>
+
+    @if ($puedePedirMateriales)
+        <a
+            href="{{ \App\Filament\Resources\RequerimientoResource::getUrl('create', ['obra_id' => $obra->id, 'tipo' => 'material']) }}"
+            style="display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 14px; border: none; background: #F59E0B; color: #ffffff; padding: 12px; font-size: 13px; font-weight: 700; text-decoration: none;"
+        >
+            <x-heroicon-o-cube style="width: 16px; height: 16px;" />
+            Pedir materiales
+        </a>
+    @endif
+
+    {{-- Documentos y OT (solo lectura) --}}
+    <div style="border-radius: 14px; border: 1px solid #e5e7eb; background: #ffffff; padding: 16px;">
+        <p style="margin: 0 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;">
+            Orden de trabajo
+        </p>
+
+        @if ($obra->ordenTrabajo)
+            <p style="margin: 0; font-size: 12.5px; font-weight: 600; color: #374151;">
+                N.° {{ $obra->ordenTrabajo->numero_ot }} · {{ ucfirst(str_replace('_', ' ', $obra->ordenTrabajo->estado)) }}
+            </p>
+            @if ($obra->ordenTrabajo->alcance)
+                <p style="margin: 6px 0 0; font-size: 12px; color: #6b7280; overflow-wrap: break-word;">
+                    {{ $obra->ordenTrabajo->alcance }}
+                </p>
+            @endif
+        @else
+            <p style="margin: 0; font-size: 12.5px; color: #9ca3af;">Sin OT registrada.</p>
+        @endif
+    </div>
+
+    <div style="border-radius: 14px; border: 1px solid #e5e7eb; background: #ffffff; padding: 16px;">
+        <p style="margin: 0 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;">
+            Documentos
+        </p>
+
+        @forelse ($obra->documentos as $documento)
+            <a
+                href="{{ $documento->urlPublica() }}"
+                target="_blank"
+                style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12.5px; color: #374151; text-decoration: none;"
+            >
+                <x-heroicon-o-document style="width: 14px; height: 14px; flex-shrink: 0; color: #9ca3af;" />
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ $documento->tipoLabel() }}</span>
+            </a>
+        @empty
+            <p style="margin: 0; font-size: 12.5px; color: #9ca3af;">Sin documentos.</p>
+        @endforelse
     </div>
 </div>

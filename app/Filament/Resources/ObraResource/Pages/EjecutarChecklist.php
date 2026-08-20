@@ -8,6 +8,7 @@ use App\Models\Checklist;
 use App\Models\ChecklistItem;
 use App\Models\Foto;
 use App\Models\Obra;
+use App\Support\EncargadoDelDia;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -52,7 +53,24 @@ class EjecutarChecklist extends Page
 
     public static function canAccess(array $parameters = []): bool
     {
-        return ! (auth()->user()?->hasRole('operario') ?? true);
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['administrador', 'jefe_planta'])) {
+            return true;
+        }
+
+        if (! $user->hasRole('operario')) {
+            return false;
+        }
+
+        /** @var Obra|null $obra */
+        $obra = $parameters['record'] ?? null;
+
+        return $obra instanceof Obra && $obra->asignadaAOperario($user);
     }
 
     protected function authorizeAccess(): void
@@ -189,7 +207,27 @@ class EjecutarChecklist extends Page
 
     public function puedeAprobar(): bool
     {
-        return auth()->user()?->hasAnyRole(['administrador', 'jefe_cuadrilla']) ?? false;
+        return auth()->user()?->hasAnyRole(['administrador', 'jefe_planta']) ?? false;
+    }
+
+    /**
+     * Subir fotos y marcar completado (items sin foto): administrador
+     * siempre, u operario con la condición dinámica de "encargado del día"
+     * activa para esta obra. jefe_planta solo aprueba/rechaza.
+     */
+    public function puedeGestionarItems(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('administrador')) {
+            return true;
+        }
+
+        return $user->hasRole('operario') && EncargadoDelDia::activoPara($user, $this->record->id);
     }
 
     public function getItemSeleccionado(): ?ChecklistItem
@@ -253,7 +291,7 @@ class EjecutarChecklist extends Page
     {
         $item = $this->getItemSeleccionado();
 
-        if (! $item || $item->requiere_foto) {
+        if (! $item || $item->requiere_foto || ! $this->puedeGestionarItems()) {
             return;
         }
 
@@ -325,7 +363,7 @@ class EjecutarChecklist extends Page
         $item = $this->getItemSeleccionado();
         $archivos = $momento === 'antes' ? $this->fotoAntes : $this->fotoDespues;
 
-        if (! $item || ! $item->requiere_foto || $item->estado === EstadoChecklistItem::Completado || empty($archivos)) {
+        if (! $item || ! $item->requiere_foto || $item->estado === EstadoChecklistItem::Completado || empty($archivos) || ! $this->puedeGestionarItems()) {
             return;
         }
 

@@ -98,7 +98,7 @@ class ManageChecklist extends Page
 
     public static function canAccess(array $parameters = []): bool
     {
-        return auth()->user()?->hasAnyRole(['administrador', 'jefe_cuadrilla']) ?? false;
+        return auth()->user()?->hasAnyRole(['administrador', 'jefe_planta']) ?? false;
     }
 
     protected function authorizeAccess(): void

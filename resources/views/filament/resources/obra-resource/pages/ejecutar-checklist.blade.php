@@ -12,6 +12,7 @@
     $fotoAmpliada = $this->getFotoAmpliada();
     $siguientePendiente = $this->getSiguientePendiente();
     $puedeAprobar = $this->puedeAprobar();
+    $puedeGestionarItems = $this->puedeGestionarItems();
     $contadoresRepeticion = $this->contadoresRepeticion();
     /** @var \App\Models\Obra $obra */
     $obra = $this->record;
@@ -60,7 +61,7 @@
         {{-- Vista detalle --}}
         @php
             $categoriaItem = $itemSeleccionado->categoriaEfectiva();
-            $puedeSubirFotos = $itemSeleccionado->estado !== EstadoChecklistItem::Completado;
+            $puedeSubirFotos = $puedeGestionarItems && $itemSeleccionado->estado !== EstadoChecklistItem::Completado;
         @endphp
 
         <button
@@ -200,7 +201,7 @@
                             </div>
                         </div>
                     @endforeach
-                @else
+                @elseif ($puedeGestionarItems)
                     <button
                         type="button"
                         wire:click="alternarCompletado"
@@ -211,6 +212,13 @@
                         <span style="font-size: 18px;">{{ $itemSeleccionado->estado === EstadoChecklistItem::Completado ? '✅' : '⭕' }}</span>
                         {{ $itemSeleccionado->estado === EstadoChecklistItem::Completado ? 'Completado (tap para deshacer)' : 'Marcar como completado' }}
                     </button>
+                @else
+                    <div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; border-radius: 12px;
+                            background: {{ $itemSeleccionado->estado === EstadoChecklistItem::Completado ? '#ECFDF5' : '#F3F4F6' }};
+                            color: {{ $itemSeleccionado->estado === EstadoChecklistItem::Completado ? '#065F46' : '#6B7280' }}; font-size: 15px; font-weight: 700;">
+                        <span style="font-size: 18px;">{{ $itemSeleccionado->estado === EstadoChecklistItem::Completado ? '✅' : '⭕' }}</span>
+                        {{ $itemSeleccionado->estado === EstadoChecklistItem::Completado ? 'Completado' : 'Pendiente' }}
+                    </div>
                 @endif
 
                 <div style="border-radius: 14px; border: 1px solid #e5e7eb; background: #ffffff; padding: 16px;">
