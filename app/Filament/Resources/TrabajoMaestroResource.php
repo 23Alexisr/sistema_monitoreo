@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TrabajoMaestroResource\Pages;
+use App\Filament\Resources\TrabajoMaestroResource\RelationManagers;
 use App\Models\CategoriaTrabajo;
 use App\Models\SubcategoriaTrabajo;
 use App\Models\TrabajoMaestro;
@@ -153,7 +154,7 @@ class TrabajoMaestroResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\MaterialesSugeridosRelationManager::class,
         ];
     }
 

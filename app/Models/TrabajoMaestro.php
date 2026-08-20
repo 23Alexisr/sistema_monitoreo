@@ -38,6 +38,11 @@ class TrabajoMaestro extends Model
         return $this->hasMany(ChecklistItem::class, 'trabajo_maestro_id');
     }
 
+    public function sugerenciasMaterial(): HasMany
+    {
+        return $this->hasMany(TrabajoMaterialSugerido::class, 'trabajo_maestro_id');
+    }
+
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);
