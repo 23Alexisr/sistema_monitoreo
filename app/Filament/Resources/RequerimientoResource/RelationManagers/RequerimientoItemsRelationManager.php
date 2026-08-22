@@ -40,11 +40,13 @@ class RequerimientoItemsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('nombre')
                     ->label('Material')
                     ->getStateUsing(fn (RequerimientoItem $record) => $record->nombreParaMostrar())
-                    ->description(fn (RequerimientoItem $record) => ! $record->esCatalogado()
-                        ? trim('No catalogado'.($record->medidas ? ' · '.$record->medidas : ''))
-                        : null),
+                    ->description(fn (RequerimientoItem $record) => ! $record->esCatalogado() ? 'No catalogado' : null),
                 Tables\Columns\TextColumn::make('cantidad')
                     ->formatStateUsing(fn (RequerimientoItem $record) => $record->cantidad.' '.($record->material?->unidad_medida ?? '')),
+                Tables\Columns\TextColumn::make('dimensiones')
+                    ->label('Medida')
+                    ->getStateUsing(fn (RequerimientoItem $record) => $record->dimensionesEfectivas())
+                    ->placeholder('—'),
                 Tables\Columns\IconColumn::make('es_sugerido')
                     ->label('Sugerido')
                     ->boolean(),

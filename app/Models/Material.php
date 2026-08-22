@@ -22,6 +22,8 @@ class Material extends Model
         'nombre',
         'descripcion',
         'unidad_medida',
+        'ancho',
+        'largo',
         'foto',
         'activo',
     ];
@@ -30,6 +32,8 @@ class Material extends Model
     {
         return [
             'activo' => 'boolean',
+            'ancho' => 'decimal:2',
+            'largo' => 'decimal:2',
         ];
     }
 
@@ -88,9 +92,13 @@ class Material extends Model
         return $this->subcategoria_id ? $this->subcategoria?->categoria : $this->categoria;
     }
 
-    public function especialidadesPermitidas(): HasMany
+    public function dimensiones(): ?string
     {
-        return $this->hasMany(EspecialidadMaterial::class);
+        if (blank($this->ancho) || blank($this->largo)) {
+            return null;
+        }
+
+        return number_format((float) $this->ancho, 2).' x '.number_format((float) $this->largo, 2).' m';
     }
 
     public function sugerenciasTrabajo(): HasMany

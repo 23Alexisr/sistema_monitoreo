@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\TipoRequerimiento;
 use App\Filament\Resources\MaterialResource\Pages;
 use App\Models\CategoriaMaterial;
 use App\Models\Material;
@@ -28,13 +29,17 @@ class MaterialResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Materiales';
 
-    public const ESPECIALIDADES = [
-        'electricista' => 'Electricista',
-        'conductor' => 'Conductor',
-        'instalador' => 'Instalador',
-        'pintor' => 'Pintor',
-        'vinilero' => 'Vinilero',
-        'auxiliar' => 'Auxiliar',
+    public const UNIDADES_MEDIDA = [
+        'und' => 'Unidad (und)',
+        'm' => 'Metro (m)',
+        'm2' => 'Metro cuadrado (m2)',
+        'caja' => 'Caja',
+        'galon' => 'Galón',
+        'litro' => 'Litro',
+        'kg' => 'Kilogramo (kg)',
+        'rollo' => 'Rollo',
+        'par' => 'Par',
+        'juego' => 'Juego',
     ];
 
     public static function shouldRegisterNavigation(): bool
@@ -93,24 +98,48 @@ class MaterialResource extends Resource
                     ->label('Descripción / especificación técnica')
                     ->helperText('Ej: "Cable THW 2.5mm, color negro"')
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('unidad_medida')
+                Forms\Components\Select::make('unidad_medida')
                     ->label('Unidad de medida')
-                    ->helperText('Ej: metro, unidad, caja')
-                    ->required(),
+                    ->options(self::UNIDADES_MEDIDA)
+                    ->searchable()
+                    ->required(fn (Forms\Get $get) => ! self::categoriaEsSenaletica($get('categoria_id')))
+                    ->visible(fn (Forms\Get $get) => ! self::categoriaEsSenaletica($get('categoria_id')))
+                    ->dehydratedWhenHidden()
+                    ->dehydrateStateUsing(fn ($state, Forms\Get $get) => self::categoriaEsSenaletica($get('categoria_id')) ? 'und' : $state),
+                Forms\Components\TextInput::make('ancho')
+                    ->label('Ancho (m)')
+                    ->numeric()
+                    ->step(0.01)
+                    ->visible(fn (Forms\Get $get) => self::categoriaEsSenaletica($get('categoria_id'))),
+                Forms\Components\TextInput::make('largo')
+                    ->label('Largo (m)')
+                    ->numeric()
+                    ->step(0.01)
+                    ->visible(fn (Forms\Get $get) => self::categoriaEsSenaletica($get('categoria_id'))),
                 Forms\Components\FileUpload::make('foto')
                     ->image()
                     ->disk('public')
                     ->directory('materiales'),
                 Forms\Components\Toggle::make('activo')
                     ->default(true),
-                Forms\Components\CheckboxList::make('especialidades_permitidas')
-                    ->label('Especialidades que pueden pedir este material')
-                    ->helperText('Quien esté encargado del día puede pedir cualquier material, independientemente de esto.')
-                    ->options(self::ESPECIALIDADES)
-                    ->dehydrated(true)
-                    ->columns(3)
-                    ->columnSpanFull(),
             ]);
+    }
+
+    /**
+     * Mismo criterio usado para separar los flujos "Pedir materiales" de
+     * "Pedir señalética" (ver TipoRequerimiento::desdeCategoriaNombre y
+     * CrearRequerimiento::idsCatalogoSenaletica): ancho/largo solo tienen
+     * sentido para letreros, no para material general.
+     */
+    protected static function categoriaEsSenaletica(?int $categoriaId): bool
+    {
+        if (! $categoriaId) {
+            return false;
+        }
+
+        $nombre = CategoriaMaterial::find($categoriaId)?->nombre;
+
+        return TipoRequerimiento::desdeCategoriaNombre($nombre) === TipoRequerimiento::Señaletica;
     }
 
     public static function table(Table $table): Table
@@ -140,6 +169,10 @@ class MaterialResource extends Resource
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('unidad_medida')
                     ->label('Unidad'),
+                Tables\Columns\TextColumn::make('dimensiones')
+                    ->label('Dimensiones')
+                    ->state(fn (Material $record) => $record->dimensiones())
+                    ->placeholder('—'),
                 Tables\Columns\IconColumn::make('activo')
                     ->boolean(),
             ])

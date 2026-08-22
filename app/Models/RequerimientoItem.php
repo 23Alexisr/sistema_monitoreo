@@ -13,6 +13,8 @@ class RequerimientoItem extends Model
         'material_id',
         'descripcion_manual',
         'medidas',
+        'ancho_pedido',
+        'largo_pedido',
         'foto_referencia',
         'cantidad',
         'es_sugerido',
@@ -25,6 +27,8 @@ class RequerimientoItem extends Model
     {
         return [
             'cantidad' => 'decimal:2',
+            'ancho_pedido' => 'decimal:2',
+            'largo_pedido' => 'decimal:2',
             'es_sugerido' => 'boolean',
             'preparado' => 'boolean',
             'verificado_despacho' => 'boolean',
@@ -49,6 +53,25 @@ class RequerimientoItem extends Model
     public function nombreParaMostrar(): string
     {
         return $this->esCatalogado() ? ($this->material?->nombre ?? '—') : ($this->descripcion_manual ?? 'Item sin descripción');
+    }
+
+    /**
+     * Medida real usada en este item: la fija del catálogo si el material
+     * la tiene cargada, o la especificada al pedirlo si no (ver
+     * MaterialResource — materiales como "Letreros Adicionales" se dejan
+     * sin medida en el catálogo a propósito porque varía cada vez).
+     */
+    public function dimensionesEfectivas(): ?string
+    {
+        if ($this->material?->dimensiones()) {
+            return $this->material->dimensiones();
+        }
+
+        if (blank($this->ancho_pedido) || blank($this->largo_pedido)) {
+            return null;
+        }
+
+        return number_format((float) $this->ancho_pedido, 2).' x '.number_format((float) $this->largo_pedido, 2).' m';
     }
 
     public function fotoReferenciaUrl(): ?string

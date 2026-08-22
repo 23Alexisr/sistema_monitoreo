@@ -44,7 +44,9 @@ enum TipoRequerimiento: string
     /**
      * Deriva el tipo de requerimiento a partir del nombre de la categoría
      * (efectiva) de un material. "seguridad"/"señaletica" mapean directo;
-     * cualquier otra categoría (electricidad, etc.) o null (categoría no
+     * "letreros" es el nombre real que usa el catálogo de CYF para la
+     * categoría de señalética, así que también mapea a Señaletica.
+     * Cualquier otra categoría (electricidad, etc.) o null (categoría no
      * determinada) cae en el tipo genérico "material".
      */
     public static function desdeCategoriaNombre(?string $nombreCategoria): self
@@ -53,7 +55,7 @@ enum TipoRequerimiento: string
 
         return match (true) {
             $normalizada === 'seguridad' => self::Seguridad,
-            $normalizada === 'senaletica' => self::Señaletica,
+            in_array($normalizada, ['senaletica', 'letreros'], true) => self::Señaletica,
             default => self::Material,
         };
     }

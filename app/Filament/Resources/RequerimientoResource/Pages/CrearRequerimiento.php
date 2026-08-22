@@ -75,17 +75,29 @@ class CrearRequerimiento extends Page
 
     public ?string $cantidadTexto = null;
 
+    public ?string $anchoPedidoTexto = null;
+
+    public ?string $largoPedidoTexto = null;
+
     public bool $modalManualAbierto = false;
 
     public ?string $descripcionManual = null;
 
-    public ?string $medidasManual = null;
+    public ?string $anchoManualTexto = null;
+
+    public ?string $largoManualTexto = null;
 
     public $fotoReferenciaManual = null;
 
     public ?string $tipoManualSeleccionado = null;
 
     public ?string $cantidadManualTexto = null;
+
+    public ?string $errorAnchoManual = null;
+
+    public ?string $errorLargoManual = null;
+
+    public bool $revisandoPedido = false;
 
     public static function canAccess(array $parameters = []): bool
     {
@@ -261,6 +273,8 @@ class CrearRequerimiento extends Page
                 'material_id' => $item->material_id,
                 'descripcion_manual' => $item->descripcion_manual,
                 'medidas' => $item->medidas,
+                'ancho_pedido' => $item->ancho_pedido ? (float) $item->ancho_pedido : null,
+                'largo_pedido' => $item->largo_pedido ? (float) $item->largo_pedido : null,
                 'foto_referencia' => $item->foto_referencia,
                 'cantidad' => (float) $item->cantidad,
                 'es_sugerido' => false,
@@ -360,16 +374,178 @@ class CrearRequerimiento extends Page
             ->sortKeys();
     }
 
+    /**
+     * Agrega de una sola vez todos los materiales de un grupo (subcategoría)
+     * del catálogo de señalética, cantidad 1 c/u, sin pasar por el modal
+     * individual. Los materiales que ya están en el carrito se dejan como
+     * están (no se pisa la cantidad que el usuario ya haya puesto), y los
+     * que no tienen medida fija en el catálogo se omiten porque esta acción
+     * no tiene forma de pedir ancho/largo para varios items a la vez — esos
+     * se agregan a mano con el modal individual.
+     */
+    public function agregarGrupoCompleto(string $nombreSubcategoria): void
+    {
+        $grupo = $this->catalogoSenaleticaAgrupado()->get($nombreSubcategoria, collect());
+
+        $agregados = 0;
+        $omitidos = 0;
+
+        foreach ($grupo as $material) {
+            if (isset($this->carrito[$material->id])) {
+                continue;
+            }
+
+            if ($this->materialRequiereMedidaPedido($material)) {
+                $omitidos++;
+
+                continue;
+            }
+
+            $this->carrito[$material->id] = [
+                'material_id' => $material->id,
+                'cantidad' => 1,
+                'ancho_pedido' => null,
+                'largo_pedido' => null,
+                'es_sugerido' => false,
+            ];
+
+            $agregados++;
+        }
+
+        if ($agregados === 0 && $omitidos === 0) {
+            Notification::make()->warning()->title('Ya tenías todo este grupo en el pedido')->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title($agregados > 0 ? "Se agregaron {$agregados} material(es) del grupo" : 'No se agregó ningún material nuevo')
+            ->body($omitidos > 0 ? "{$omitidos} sin medida fija, agrégalos a mano con su medida." : null)
+            ->send();
+    }
+
+    /**
+     * Edición inline de cantidad desde el panel de resumen del pedido, sin
+     * pasar por el modal "¿Cuánto necesitas?".
+     */
+    public function actualizarCantidadCarrito(int|string $clave, mixed $valor): void
+    {
+        if (! isset($this->carrito[$clave])) {
+            return;
+        }
+
+        $cantidad = $this->parseCantidad($valor);
+
+        if ($cantidad === null) {
+            Notification::make()->danger()->title($this->mensajeCantidadInvalida())->send();
+
+            return;
+        }
+
+        $this->carrito[$clave]['cantidad'] = $cantidad;
+    }
+
+    /**
+     * +1 / -1 del stepper del panel de pedido. Las unidades de señalética
+     * son siempre enteras (un letrero, no "1.5 letreros"), así que estos
+     * botones no pasan por parseCantidad(): son aritmética entera directa,
+     * sin texto libre de por medio.
+     */
+    public function incrementarCantidadCarrito(int|string $clave): void
+    {
+        if (! isset($this->carrito[$clave])) {
+            return;
+        }
+
+        $this->carrito[$clave]['cantidad'] = (int) $this->carrito[$clave]['cantidad'] + 1;
+    }
+
+    public function decrementarCantidadCarrito(int|string $clave): void
+    {
+        if (! isset($this->carrito[$clave])) {
+            return;
+        }
+
+        $this->carrito[$clave]['cantidad'] = max(1, (int) $this->carrito[$clave]['cantidad'] - 1);
+    }
+
+    /**
+     * En modo señalética las unidades son enteras (un letrero se pide
+     * entero, no "1.85 letreros"); en modo material se permiten decimales
+     * porque hay unidades reales que los necesitan (metros, litros, etc.).
+     * Devuelve null si el texto no es un número válido para el modo actual.
+     */
+    protected function parseCantidad(mixed $valor): ?float
+    {
+        $texto = trim(str_replace(',', '.', (string) $valor));
+
+        if ($texto === '' || ! is_numeric($texto)) {
+            return null;
+        }
+
+        $numero = (float) $texto;
+
+        if ($numero <= 0) {
+            return null;
+        }
+
+        if ($this->modoFlujo === 'señaletica' && $numero != (int) $numero) {
+            return null;
+        }
+
+        return $numero;
+    }
+
+    /**
+     * A diferencia de parseCantidad(), una medida (ancho/largo en metros)
+     * siempre admite decimales, incluso en modo señalética — un letrero
+     * se pide en unidades enteras, pero puede medir 1.44m.
+     */
+    protected function parseMedida(mixed $valor): ?float
+    {
+        $texto = trim(str_replace(',', '.', (string) $valor));
+
+        if ($texto === '' || ! is_numeric($texto)) {
+            return null;
+        }
+
+        $numero = (float) $texto;
+
+        return $numero > 0 ? $numero : null;
+    }
+
+    protected function mensajeCantidadInvalida(): string
+    {
+        return $this->modoFlujo === 'señaletica'
+            ? 'Ingresa una cantidad entera válida (mínimo 1)'
+            : 'Ingresa una cantidad válida';
+    }
+
     public function elegirMaterial(int $materialId): void
     {
         $this->materialParaCantidadId = $materialId;
         $this->cantidadTexto = isset($this->carrito[$materialId]) ? (string) $this->carrito[$materialId]['cantidad'] : null;
+        $this->anchoPedidoTexto = isset($this->carrito[$materialId]['ancho_pedido']) ? (string) $this->carrito[$materialId]['ancho_pedido'] : null;
+        $this->largoPedidoTexto = isset($this->carrito[$materialId]['largo_pedido']) ? (string) $this->carrito[$materialId]['largo_pedido'] : null;
     }
 
     public function cancelarCantidad(): void
     {
         $this->materialParaCantidadId = null;
         $this->cantidadTexto = null;
+        $this->anchoPedidoTexto = null;
+        $this->largoPedidoTexto = null;
+    }
+
+    /**
+     * true si el material no tiene ancho/largo fijos en el catálogo (ej.
+     * "Letreros Adicionales") y por lo tanto el usuario debe especificar
+     * la medida al pedirlo.
+     */
+    public function materialRequiereMedidaPedido(?Material $material): bool
+    {
+        return $material !== null && $material->dimensiones() === null;
     }
 
     public function confirmarCantidad(): void
@@ -378,22 +554,41 @@ class CrearRequerimiento extends Page
             return;
         }
 
-        $cantidad = (float) str_replace(',', '.', (string) $this->cantidadTexto);
+        $cantidad = $this->parseCantidad($this->cantidadTexto);
 
-        if ($cantidad <= 0) {
-            Notification::make()->danger()->title('Ingresa una cantidad válida')->send();
+        if ($cantidad === null) {
+            Notification::make()->danger()->title($this->mensajeCantidadInvalida())->send();
 
             return;
+        }
+
+        $material = Material::find($this->materialParaCantidadId);
+        $anchoPedido = null;
+        $largoPedido = null;
+
+        if ($this->materialRequiereMedidaPedido($material)) {
+            $anchoPedido = (float) str_replace(',', '.', (string) $this->anchoPedidoTexto);
+            $largoPedido = (float) str_replace(',', '.', (string) $this->largoPedidoTexto);
+
+            if ($anchoPedido <= 0 || $largoPedido <= 0) {
+                Notification::make()->danger()->title('Ingresa ancho y largo para este material')->send();
+
+                return;
+            }
         }
 
         $this->carrito[$this->materialParaCantidadId] = [
             'material_id' => $this->materialParaCantidadId,
             'cantidad' => $cantidad,
+            'ancho_pedido' => $anchoPedido,
+            'largo_pedido' => $largoPedido,
             'es_sugerido' => $this->carrito[$this->materialParaCantidadId]['es_sugerido'] ?? false,
         ];
 
         $this->materialParaCantidadId = null;
         $this->cantidadTexto = null;
+        $this->anchoPedidoTexto = null;
+        $this->largoPedidoTexto = null;
     }
 
     /**
@@ -418,15 +613,20 @@ class CrearRequerimiento extends Page
 
         $this->modalManualAbierto = true;
         $this->descripcionManual = null;
-        $this->medidasManual = null;
+        $this->anchoManualTexto = null;
+        $this->largoManualTexto = null;
         $this->fotoReferenciaManual = null;
         $this->tipoManualSeleccionado = count($opciones) === 1 ? array_key_first($opciones) : null;
         $this->cantidadManualTexto = null;
+        $this->errorAnchoManual = null;
+        $this->errorLargoManual = null;
     }
 
     public function cancelarManual(): void
     {
         $this->modalManualAbierto = false;
+        $this->errorAnchoManual = null;
+        $this->errorLargoManual = null;
     }
 
     public function seleccionarTipoManual(string $tipo): void
@@ -439,6 +639,20 @@ class CrearRequerimiento extends Page
         if (blank($this->descripcionManual) || blank($this->tipoManualSeleccionado)) {
             Notification::make()->danger()->title('Completa la descripción y el tipo de pedido')->send();
 
+            return;
+        }
+
+        // Item sin registro en el catálogo: la medida no queda guardada en
+        // ningún otro lado, así que ancho y largo son obligatorios (a
+        // diferencia del ancho/largo del catálogo, que puede quedar vacío
+        // porque el material ya tiene su propia medida fija).
+        $ancho = $this->parseMedida($this->anchoManualTexto);
+        $largo = $this->parseMedida($this->largoManualTexto);
+
+        $this->errorAnchoManual = $ancho === null ? 'Ingresa el ancho del letrero' : null;
+        $this->errorLargoManual = $largo === null ? 'Ingresa el largo del letrero' : null;
+
+        if ($ancho === null || $largo === null) {
             return;
         }
 
@@ -455,7 +669,8 @@ class CrearRequerimiento extends Page
         $this->carrito['manual-'.Str::uuid()] = [
             'material_id' => null,
             'descripcion_manual' => $this->descripcionManual,
-            'medidas' => $this->medidasManual,
+            'ancho_pedido' => $ancho,
+            'largo_pedido' => $largo,
             'foto_referencia' => $rutaFoto,
             'cantidad' => $cantidad,
             'es_sugerido' => false,
@@ -479,11 +694,15 @@ class CrearRequerimiento extends Page
         }
 
         $idsCatalogo = collect($this->carrito)->pluck('material_id')->filter()->values();
-        $materiales = Material::whereIn('id', $idsCatalogo)->get()->keyBy('id');
+        $materiales = Material::whereIn('id', $idsCatalogo)->with('subcategoria')->get()->keyBy('id');
 
         return collect($this->carrito)
             ->map(function (array $datos, $clave) use ($materiales) {
                 $material = filled($datos['material_id'] ?? null) ? $materiales->get($datos['material_id']) : null;
+
+                $dimensionesPedido = (filled($datos['ancho_pedido'] ?? null) && filled($datos['largo_pedido'] ?? null))
+                    ? number_format((float) $datos['ancho_pedido'], 2).' x '.number_format((float) $datos['largo_pedido'], 2).' m'
+                    : null;
 
                 return (object) [
                     'clave' => $clave,
@@ -493,11 +712,58 @@ class CrearRequerimiento extends Page
                     'nombre' => $material?->nombre ?? ($datos['descripcion_manual'] ?? '—'),
                     'unidad' => $material?->unidad_medida,
                     'medidas' => $datos['medidas'] ?? null,
+                    'dimensiones' => $material?->dimensiones() ?? $dimensionesPedido,
                     'cantidad' => $datos['cantidad'],
                     'es_sugerido' => $datos['es_sugerido'] ?? false,
+                    // mismo agrupamiento que el catálogo (ver catalogoSenaleticaAgrupado)
+                    'grupo' => $material ? ($material->subcategoria?->nombre ?? 'General') : 'Sin catalogar',
                 ];
             })
             ->values();
+    }
+
+    /**
+     * Items del carrito agrupados por subcategoría, con el mismo criterio
+     * que el catálogo (catalogoSenaleticaAgrupado), para que el panel del
+     * pedido se lea igual que el catálogo del que salieron.
+     *
+     * @return Collection<string, Collection<int, object>>
+     */
+    public function carritoAgrupado(): Collection
+    {
+        return $this->carritoDecorado()
+            ->groupBy('grupo')
+            ->sortKeys();
+    }
+
+    /**
+     * Abre la previsualización final del pedido (Obra, adicional de si
+     * aplica, lista completa de items). No crea nada en base de datos
+     * todavía — eso solo pasa al confirmar desde ahí (ver enviar()).
+     */
+    public function revisarPedido(): void
+    {
+        if (empty($this->carrito)) {
+            Notification::make()->danger()->title('Agrega al menos un material')->send();
+
+            return;
+        }
+
+        $this->revisandoPedido = true;
+    }
+
+    /**
+     * Vuelve del preview al catálogo sin tocar el carrito, para que el
+     * usuario pueda seguir editando lo ya agregado.
+     */
+    public function volverAEditarPedido(): void
+    {
+        $this->revisandoPedido = false;
+    }
+
+    public function requerimientoOriginalSeleccionado(): ?Requerimiento
+    {
+        return $this->requerimientoOriginalId ? Requerimiento::find($this->requerimientoOriginalId) : null;
     }
 
     public function enviar(): void
@@ -562,6 +828,8 @@ class CrearRequerimiento extends Page
                     'material_id' => $datos['material_id'] ?? null,
                     'descripcion_manual' => $datos['descripcion_manual'] ?? null,
                     'medidas' => $datos['medidas'] ?? null,
+                    'ancho_pedido' => $datos['ancho_pedido'] ?? null,
+                    'largo_pedido' => $datos['largo_pedido'] ?? null,
                     'foto_referencia' => $datos['foto_referencia'] ?? null,
                     'cantidad' => $datos['cantidad'],
                     'es_sugerido' => $datos['es_sugerido'] ?? false,
