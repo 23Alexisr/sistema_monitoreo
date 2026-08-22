@@ -22,9 +22,9 @@ enum TipoRequerimiento: string
     public function color(): string
     {
         return match ($this) {
-            self::Material => '#0EA5E9',
-            self::Seguridad => '#DC2626',
-            self::Señaletica => '#F59E0B',
+            self::Material => 'info',
+            self::Seguridad => 'danger',
+            self::Señaletica => 'warning',
         };
     }
 

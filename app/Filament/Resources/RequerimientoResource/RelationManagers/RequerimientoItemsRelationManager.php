@@ -27,7 +27,7 @@ class RequerimientoItemsRelationManager extends RelationManager
         $requerimiento = $this->getOwnerRecord();
         $esSenaletica = $requerimiento->tipo === TipoRequerimiento::Señaletica;
         $puedeEditarObservaciones = $requerimiento->puedeGestionarAlmacen(auth()->user());
-        $puedeVinilero = $requerimiento->puedeGestionarVinilero(auth()->user());
+        $puedeAcabados = $requerimiento->puedeGestionarAcabados(auth()->user());
         $puedeDespacho = $requerimiento->puedeGestionarDespacho(auth()->user());
 
         return $table
@@ -47,9 +47,6 @@ class RequerimientoItemsRelationManager extends RelationManager
                     ->label('Medida')
                     ->getStateUsing(fn (RequerimientoItem $record) => $record->dimensionesEfectivas())
                     ->placeholder('—'),
-                Tables\Columns\IconColumn::make('es_sugerido')
-                    ->label('Sugerido')
-                    ->boolean(),
                 ...($esSenaletica ? [
                     Tables\Columns\IconColumn::make('preparado')
                         ->label('Preparado')
@@ -57,6 +54,9 @@ class RequerimientoItemsRelationManager extends RelationManager
                     Tables\Columns\IconColumn::make('verificado_despacho')
                         ->label('Verificado')
                         ->boolean(),
+                    Tables\Columns\TextColumn::make('verificadoPor.empleado.nombre_completo')
+                        ->label('Verificado por')
+                        ->placeholder('—'),
                 ] : []),
                 $puedeEditarObservaciones
                     ? Tables\Columns\TextInputColumn::make('observaciones')
@@ -75,7 +75,7 @@ class RequerimientoItemsRelationManager extends RelationManager
                     ->label('Marcar preparado')
                     ->icon('heroicon-o-check')
                     ->color('success')
-                    ->visible(fn (RequerimientoItem $record) => $puedeVinilero && ! $record->preparado)
+                    ->visible(fn (RequerimientoItem $record) => $puedeAcabados && ! $record->preparado)
                     ->action(fn (RequerimientoItem $record) => $record->marcarPreparado()),
                 Tables\Actions\Action::make('verificarDespacho')
                     ->label('Verificar')

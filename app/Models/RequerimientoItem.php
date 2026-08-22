@@ -20,6 +20,8 @@ class RequerimientoItem extends Model
         'es_sugerido',
         'preparado',
         'verificado_despacho',
+        'verificado_por',
+        'fecha_verificacion',
         'observaciones',
     ];
 
@@ -32,6 +34,7 @@ class RequerimientoItem extends Model
             'es_sugerido' => 'boolean',
             'preparado' => 'boolean',
             'verificado_despacho' => 'boolean',
+            'fecha_verificacion' => 'datetime',
         ];
     }
 
@@ -43,6 +46,11 @@ class RequerimientoItem extends Model
     public function material(): BelongsTo
     {
         return $this->belongsTo(Material::class);
+    }
+
+    public function verificadoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verificado_por');
     }
 
     public function esCatalogado(): bool
@@ -91,7 +99,12 @@ class RequerimientoItem extends Model
 
     public function desmarcarPreparado(): void
     {
-        $this->update(['preparado' => false, 'verificado_despacho' => false]);
+        $this->update([
+            'preparado' => false,
+            'verificado_despacho' => false,
+            'verificado_por' => null,
+            'fecha_verificacion' => null,
+        ]);
         $this->requerimiento->sincronizarEstadoSenaletica();
     }
 
@@ -101,7 +114,11 @@ class RequerimientoItem extends Model
      */
     public function verificarDespacho(User $usuario): void
     {
-        $this->update(['verificado_despacho' => true]);
+        $this->update([
+            'verificado_despacho' => true,
+            'verificado_por' => $usuario->id,
+            'fecha_verificacion' => now(),
+        ]);
         $this->requerimiento->sincronizarEstadoSenaletica($usuario);
     }
 
@@ -111,7 +128,13 @@ class RequerimientoItem extends Model
      */
     public function rechazarDespacho(string $motivo): void
     {
-        $this->update(['preparado' => false, 'verificado_despacho' => false, 'observaciones' => $motivo]);
+        $this->update([
+            'preparado' => false,
+            'verificado_despacho' => false,
+            'verificado_por' => null,
+            'fecha_verificacion' => null,
+            'observaciones' => $motivo,
+        ]);
         $this->requerimiento->sincronizarEstadoSenaletica();
     }
 }

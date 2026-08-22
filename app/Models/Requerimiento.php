@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\EstadoRequerimiento;
 use App\Enums\TipoRequerimiento;
-use App\Support\PermisoRequerimiento;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -95,13 +94,13 @@ class Requerimiento extends Model
         return $usuario?->hasAnyRole(['administrador', 'almacen']) ?? false;
     }
 
-    public function puedeGestionarVinilero(?User $usuario): bool
+    public function puedeGestionarAcabados(?User $usuario): bool
     {
         if ($this->tipo !== TipoRequerimiento::Señaletica || $this->estado !== EstadoRequerimiento::Aprobado) {
             return false;
         }
 
-        return ($usuario?->hasRole('administrador') ?? false) || PermisoRequerimiento::esVinilero($usuario);
+        return $usuario?->hasAnyRole(['administrador', 'acabados']) ?? false;
     }
 
     public function puedeGestionarDespacho(?User $usuario): bool
@@ -153,11 +152,11 @@ class Requerimiento extends Model
     /**
      * Flujo especial de señalética (3 pasos, reutiliza los mismos estados
      * de EstadoRequerimiento pero alcanzados por un camino distinto al de
-     * material/seguridad): aprobado -> [vinilero prepara cada item] ->
+     * material/seguridad): aprobado -> [acabados prepara cada item] ->
      * en_alistamiento -> [despacho verifica cada item] -> entregado.
      * Bidireccional igual que ChecklistItem::sincronizarEstadoAutomatico():
      * si despacho rechaza un item ya en camino, el requerimiento retrocede
-     * para que el vinilero lo vea de nuevo en su bandeja.
+     * para que acabados lo vea de nuevo en su bandeja.
      */
     public function sincronizarEstadoSenaletica(?User $usuarioDespacho = null): void
     {

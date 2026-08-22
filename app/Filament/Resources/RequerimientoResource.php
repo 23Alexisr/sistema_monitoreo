@@ -7,7 +7,6 @@ use App\Enums\TipoRequerimiento;
 use App\Filament\Resources\RequerimientoResource\Pages;
 use App\Filament\Resources\RequerimientoResource\RelationManagers;
 use App\Models\Requerimiento;
-use App\Support\PermisoRequerimiento;
 use Filament\Forms;
 use Filament\Infolists\Components\Actions as InfolistActions;
 use Filament\Infolists\Components\Actions\Action as InfolistAction;
@@ -37,21 +36,17 @@ class RequerimientoResource extends Resource
 
     public static function rolesConAcceso(): array
     {
-        return ['administrador', 'jefe_planta', 'jefe_ssoma', 'jefe_proyectos', 'almacen', 'despacho'];
+        return ['administrador', 'jefe_planta', 'jefe_ssoma', 'jefe_proyectos', 'almacen', 'despacho', 'acabados'];
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        $user = auth()->user();
-
-        return ($user?->hasAnyRole(static::rolesConAcceso()) ?? false) || PermisoRequerimiento::esVinilero($user);
+        return auth()->user()?->hasAnyRole(static::rolesConAcceso()) ?? false;
     }
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
-
-        return ($user?->hasAnyRole(static::rolesConAcceso()) ?? false) || PermisoRequerimiento::esVinilero($user);
+        return auth()->user()?->hasAnyRole(static::rolesConAcceso()) ?? false;
     }
 
     public static function canCreate(): bool
@@ -88,7 +83,7 @@ class RequerimientoResource extends Resource
                 ->whereIn('estado', [EstadoRequerimiento::EnAlistamiento->value, EstadoRequerimiento::Entregado->value]);
         }
 
-        if (PermisoRequerimiento::esVinilero($user)) {
+        if ($user->hasRole('acabados')) {
             return $query
                 ->where('tipo', TipoRequerimiento::Señaletica->value)
                 ->where('estado', EstadoRequerimiento::Aprobado->value);
@@ -126,6 +121,10 @@ class RequerimientoResource extends Resource
                     ->label('Fecha')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('items_pendientes')
+                    ->label('Items pendientes')
+                    ->getStateUsing(fn (Requerimiento $record) => $record->items()->where('preparado', false)->count())
+                    ->visible(fn () => auth()->user()?->hasRole('acabados') ?? false),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('estado')
@@ -134,8 +133,10 @@ class RequerimientoResource extends Resource
                     ->options(collect(TipoRequerimiento::cases())->mapWithKeys(fn ($t) => [$t->value => $t->label()])->toArray())
                     ->visible(fn () => auth()->user()?->hasRole('administrador') ?? false),
             ])
+            ->recordUrl(fn (Requerimiento $record) => static::getUrlSegunRol($record))
             ->actions([
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->url(fn (Requerimiento $record) => static::getUrlSegunRol($record)),
                 Tables\Actions\Action::make('aprobar')
                     ->label('Aprobar')
                     ->icon('heroicon-o-check-circle')
@@ -193,13 +194,20 @@ class RequerimientoResource extends Resource
                             ->color(fn (EstadoRequerimiento $state) => $state->color()),
                         TextEntry::make('solicitadoPor.empleado.nombre_completo')->label('Solicitado por'),
                         TextEntry::make('fecha_solicitud')->label('Fecha de solicitud')->dateTime('d/m/Y H:i'),
-                        TextEntry::make('checklistItem.descripcion')->label('Origen (trabajo del checklist)')->placeholder('—'),
-                        TextEntry::make('requerimientoOriginal.id')->label('Adicional de')->placeholder('—')
-                            ->formatStateUsing(fn ($state) => $state ? "#{$state}" : null),
+                        TextEntry::make('requerimientoOriginal.id')->label('Adicional de')
+                            ->formatStateUsing(fn ($state) => "#{$state}")
+                            ->visible(fn (Requerimiento $record) => filled($record->requerimiento_original_id)),
                         TextEntry::make('aprobadoPor.empleado.nombre_completo')->label('Aprobado por')->placeholder('—'),
+                        TextEntry::make('auto_aprobado')
+                            ->label('')
+                            ->state('Auto-aprobado')
+                            ->badge()
+                            ->color('warning')
+                            ->visible(fn (Requerimiento $record) => filled($record->aprobado_por) && $record->aprobado_por === $record->solicitado_por),
                         TextEntry::make('motivo_rechazo')->label('Motivo de rechazo')->placeholder('—')->columnSpanFull()
                             ->visible(fn (Requerimiento $record) => filled($record->motivo_rechazo)),
-                        TextEntry::make('alistadoPor.empleado.nombre_completo')->label('Alistado por')->placeholder('—'),
+                        TextEntry::make('alistadoPor.empleado.nombre_completo')->label('Alistado por')->placeholder('—')
+                            ->visible(fn (Requerimiento $record) => $record->tipo !== TipoRequerimiento::Señaletica),
                     ]),
                 InfolistActions::make([
                     InfolistAction::make('aprobar')
@@ -251,6 +259,29 @@ class RequerimientoResource extends Resource
             'index' => Pages\ListRequerimientos::route('/'),
             'create' => Pages\CrearRequerimiento::route('/crear'),
             'view' => Pages\ViewRequerimiento::route('/{record}'),
+            'preparar' => Pages\PrepararSenaletica::route('/{record}/preparar'),
+            'verificar' => Pages\VerificarDespacho::route('/{record}/verificar'),
         ];
+    }
+
+    /**
+     * acabados/despacho van directo a su pantalla de tarea (checklist), no
+     * a la vista de detalle administrativa (esa es "la de los jefes": todo
+     * el estado del pedido, aprobación, etc). El resto de los roles sigue
+     * yendo al detalle de siempre.
+     */
+    public static function getUrlSegunRol(Requerimiento $record): string
+    {
+        $user = auth()->user();
+
+        if ($user?->hasRole('acabados') && $record->puedeGestionarAcabados($user)) {
+            return static::getUrl('preparar', ['record' => $record]);
+        }
+
+        if ($user?->hasRole('despacho') && $record->puedeGestionarDespacho($user)) {
+            return static::getUrl('verificar', ['record' => $record]);
+        }
+
+        return static::getUrl('view', ['record' => $record]);
     }
 }

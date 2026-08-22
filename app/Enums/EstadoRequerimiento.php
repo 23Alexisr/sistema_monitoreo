@@ -16,7 +16,7 @@ enum EstadoRequerimiento: string
             self::Pendiente => 'Pendiente',
             self::Aprobado => 'Aprobado',
             self::Rechazado => 'Rechazado',
-            self::EnAlistamiento => 'En alistamiento',
+            self::EnAlistamiento => 'En proceso',
             self::Entregado => 'Entregado',
         };
     }
@@ -24,11 +24,11 @@ enum EstadoRequerimiento: string
     public function color(): string
     {
         return match ($this) {
-            self::Pendiente => '#9CA3AF',
-            self::Aprobado => '#0EA5E9',
-            self::Rechazado => '#DC2626',
-            self::EnAlistamiento => '#F59E0B',
-            self::Entregado => '#10B981',
+            self::Pendiente => 'gray',
+            self::Aprobado => 'info',
+            self::Rechazado => 'danger',
+            self::EnAlistamiento => 'warning',
+            self::Entregado => 'success',
         };
     }
 }

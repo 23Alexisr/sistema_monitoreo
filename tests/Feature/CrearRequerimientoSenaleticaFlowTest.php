@@ -187,6 +187,9 @@ class CrearRequerimientoSenaleticaFlowTest extends TestCase
             'activo' => true,
         ]);
 
+        $requerimientosAntes = \App\Models\Requerimiento::count();
+        $itemsAntes = \App\Models\RequerimientoItem::count();
+
         $component = Livewire::actingAs($this->admin())
             ->test(CrearRequerimiento::class)
             ->set('obraId', $obra->id)
@@ -198,8 +201,8 @@ class CrearRequerimientoSenaleticaFlowTest extends TestCase
             ->assertSee('Confirmar pedido')
             ->assertSee($obra->nombre);
 
-        $this->assertDatabaseCount('requerimientos', 0);
-        $this->assertDatabaseCount('requerimiento_items', 0);
+        $this->assertSame($requerimientosAntes, \App\Models\Requerimiento::count());
+        $this->assertSame($itemsAntes, \App\Models\RequerimientoItem::count());
 
         // Volver a editar no debe perder lo agregado.
         $component->call('volverAEditarPedido')
@@ -211,7 +214,7 @@ class CrearRequerimientoSenaleticaFlowTest extends TestCase
         // Recién al confirmar se crea el registro.
         $component->call('revisarPedido')->call('enviar');
 
-        $this->assertDatabaseCount('requerimientos', 1);
+        $this->assertSame($requerimientosAntes + 1, \App\Models\Requerimiento::count());
         $this->assertDatabaseHas('requerimiento_items', [
             'material_id' => $material->id,
             'cantidad' => 1,
