@@ -449,6 +449,67 @@ class CrearRequerimientoSenaleticaFlowTest extends TestCase
         $this->assertSame(0.20, (float) $item['largo_pedido']);
     }
 
+    public function test_agregar_dos_veces_un_material_sin_medida_fija_crea_dos_lineas_independientes(): void
+    {
+        $obra = Obra::create(['nombre' => 'Obra de prueba tapa surtidor', 'cliente_id' => Cliente::query()->value('id')]);
+
+        $letreros = CategoriaMaterial::firstOrCreate(['nombre' => 'Letreros']);
+        $subcategoria = SubcategoriaMaterial::firstOrCreate(
+            ['nombre' => 'Vinil para Surtidor', 'categoria_id' => $letreros->id],
+            ['orden' => 1]
+        );
+
+        // Sin ancho/largo en catálogo, igual que "Tapa surtidor combustible líquido" real.
+        $material = Material::create([
+            'subcategoria_id' => $subcategoria->id,
+            'nombre' => 'Tapa surtidor combustible líquido',
+            'unidad_medida' => 'und',
+            'activo' => true,
+        ]);
+
+        $component = Livewire::actingAs($this->admin())
+            ->test(CrearRequerimiento::class)
+            ->set('obraId', $obra->id)
+            ->set('modoFlujo', 'señaletica');
+
+        // Primera medida.
+        $component->call('elegirMaterial', $material->id)
+            ->set('cantidadTexto', '2')
+            ->set('anchoPedidoTexto', '0.40')
+            ->set('largoPedidoTexto', '0.30')
+            ->call('confirmarCantidad');
+
+        $this->assertCount(1, $component->get('carrito'));
+
+        // Intenta agregar "otro del mismo pero con otra medida": vuelve a
+        // elegir el mismo material_id — el modal debe abrir en blanco, no
+        // precargado con la primera medida (esa era la causa del bug).
+        $component->call('elegirMaterial', $material->id);
+        $this->assertNull($component->get('cantidadTexto'));
+        $this->assertNull($component->get('anchoPedidoTexto'));
+        $this->assertNull($component->get('largoPedidoTexto'));
+
+        $component->set('cantidadTexto', '3')
+            ->set('anchoPedidoTexto', '0.55')
+            ->set('largoPedidoTexto', '0.45')
+            ->call('confirmarCantidad');
+
+        // Debe haber DOS líneas independientes, no una sola pisada.
+        $carrito = $component->get('carrito');
+        $this->assertCount(2, $carrito);
+
+        $lineasDelMaterial = collect($carrito)->where('material_id', $material->id);
+        $this->assertCount(2, $lineasDelMaterial);
+
+        $medidas = $lineasDelMaterial->map(fn ($linea) => [$linea['ancho_pedido'], $linea['largo_pedido']])->values()->all();
+        $this->assertContains([0.4, 0.3], $medidas);
+        $this->assertContains([0.55, 0.45], $medidas);
+
+        // El indicador del tile del catálogo también debe reflejar ambas.
+        $this->assertTrue($component->instance()->carritoTieneMaterial($material->id));
+        $this->assertSame(5.0, $component->instance()->carritoCantidadMaterial($material->id));
+    }
+
     public function test_pagina_de_senaletica_renderiza_sin_errores_con_boton_de_grupo(): void
     {
         $obra = Obra::create(['nombre' => 'Obra de prueba señalética 4', 'cliente_id' => Cliente::query()->value('id')]);

@@ -1,7 +1,7 @@
 <button
     type="button"
     wire:click="elegirMaterial({{ $material->id }})"
-    style="cursor: pointer; text-align: left; border: 1px solid {{ isset($this->carrito[$material->id]) ? '#F59E0B' : '#e5e7eb' }}; border-radius: 10px; padding: 8px; background: #ffffff;"
+    style="cursor: pointer; text-align: left; border: 1px solid {{ $this->carritoTieneMaterial($material->id) ? '#F59E0B' : '#e5e7eb' }}; border-radius: 10px; padding: 8px; background: #ffffff;"
 >
     <div style="width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #F3F4F6; margin-bottom: 6px; display: flex; align-items: center; justify-content: center;">
         @if ($material->fotoUrl())
@@ -17,9 +17,9 @@
     @if ($material->dimensiones())
         <p style="margin: 2px 0 0; font-size: 10.5px; font-weight: 600; color: #6b7280;">{{ $material->dimensiones() }}</p>
     @endif
-    @if (isset($this->carrito[$material->id]))
+    @if ($this->carritoTieneMaterial($material->id))
         <p style="margin: 4px 0 0; font-size: 11px; font-weight: 700; color: #F59E0B;">
-            En el pedido: {{ $this->carrito[$material->id]['cantidad'] }} {{ $material->unidad_medida }}
+            En el pedido: {{ $this->carritoCantidadMaterial($material->id) }} {{ $material->unidad_medida }}
         </p>
     @endif
 </button>

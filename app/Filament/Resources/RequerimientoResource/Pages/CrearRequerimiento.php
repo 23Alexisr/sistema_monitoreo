@@ -525,6 +525,22 @@ class CrearRequerimiento extends Page
     public function elegirMaterial(int $materialId): void
     {
         $this->materialParaCantidadId = $materialId;
+
+        // Un material sin medida fija (dimensiones() null) puede tener
+        // varias líneas en el carrito, cada una con su propia medida —
+        // no hay "la" entrada de ese material para precargar, así que el
+        // modal arranca en blanco y cada confirmación agrega una línea
+        // nueva (ver confirmarCantidad()). Los que sí tienen medida fija
+        // siguen teniendo una sola línea por material, y reabrir el modal
+        // la precarga para editarla.
+        if ($this->materialRequiereMedidaPedido(Material::find($materialId))) {
+            $this->cantidadTexto = null;
+            $this->anchoPedidoTexto = null;
+            $this->largoPedidoTexto = null;
+
+            return;
+        }
+
         $this->cantidadTexto = isset($this->carrito[$materialId]) ? (string) $this->carrito[$materialId]['cantidad'] : null;
         $this->anchoPedidoTexto = isset($this->carrito[$materialId]['ancho_pedido']) ? (string) $this->carrito[$materialId]['ancho_pedido'] : null;
         $this->largoPedidoTexto = isset($this->carrito[$materialId]['largo_pedido']) ? (string) $this->carrito[$materialId]['largo_pedido'] : null;
@@ -548,6 +564,24 @@ class CrearRequerimiento extends Page
         return $material !== null && $material->dimensiones() === null;
     }
 
+    /**
+     * true si el material ya tiene alguna línea en el carrito. Busca por
+     * material_id en vez de indexar directo por clave, porque un material
+     * sin medida fija puede tener varias líneas (una por medida pedida),
+     * cada una con una clave distinta (ver confirmarCantidad()).
+     */
+    public function carritoTieneMaterial(int $materialId): bool
+    {
+        return collect($this->carrito)->contains('material_id', $materialId);
+    }
+
+    public function carritoCantidadMaterial(int $materialId): float
+    {
+        return collect($this->carrito)
+            ->where('material_id', $materialId)
+            ->sum('cantidad');
+    }
+
     public function confirmarCantidad(): void
     {
         if (! $this->materialParaCantidadId) {
@@ -565,8 +599,9 @@ class CrearRequerimiento extends Page
         $material = Material::find($this->materialParaCantidadId);
         $anchoPedido = null;
         $largoPedido = null;
+        $requiereMedida = $this->materialRequiereMedidaPedido($material);
 
-        if ($this->materialRequiereMedidaPedido($material)) {
+        if ($requiereMedida) {
             $anchoPedido = (float) str_replace(',', '.', (string) $this->anchoPedidoTexto);
             $largoPedido = (float) str_replace(',', '.', (string) $this->largoPedidoTexto);
 
@@ -577,12 +612,19 @@ class CrearRequerimiento extends Page
             }
         }
 
-        $this->carrito[$this->materialParaCantidadId] = [
+        // Sin medida fija: cada confirmación es una línea nueva e
+        // independiente (misma lógica que un item no catalogado), porque
+        // dos pedidos del mismo material pueden traer medidas distintas
+        // (ver elegirMaterial()). Con medida fija, sigue siendo una sola
+        // línea por material, indexada por su id.
+        $clave = $requiereMedida ? $this->materialParaCantidadId.'-'.Str::uuid() : $this->materialParaCantidadId;
+
+        $this->carrito[$clave] = [
             'material_id' => $this->materialParaCantidadId,
             'cantidad' => $cantidad,
             'ancho_pedido' => $anchoPedido,
             'largo_pedido' => $largoPedido,
-            'es_sugerido' => $this->carrito[$this->materialParaCantidadId]['es_sugerido'] ?? false,
+            'es_sugerido' => $this->carrito[$clave]['es_sugerido'] ?? false,
         ];
 
         $this->materialParaCantidadId = null;
