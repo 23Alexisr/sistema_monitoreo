@@ -45,6 +45,12 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::findOrCreate('almacen');
         Role::findOrCreate('despacho');
 
+        // Roles estables del flujo de 3 pasos de señalética: acabados
+        // prepara cada item en taller (aprobado -> en_alistamiento),
+        // despacho verifica antes de entregar (en_alistamiento ->
+        // entregado). Ver Requerimiento::sincronizarEstadoSenaletica().
+        Role::findOrCreate('acabados');
+
         // jefe_proyectos y jefe_ssoma ya tienen lógica activa (aprobar
         // requerimientos de señalética/seguridad respectivamente) pero sin
         // permisos symlink propios todavía, ya que el patrón del repo gatea

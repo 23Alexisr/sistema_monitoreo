@@ -57,9 +57,4 @@ final class PermisoRequerimiento
             ->where('activo', true)
             ->where(fn (Builder $q) => $q->whereNull('cliente_id')->when($clienteId, fn (Builder $q2) => $q2->orWhere('cliente_id', $clienteId)));
     }
-
-    public static function esVinilero(?User $user): bool
-    {
-        return ($user?->hasRole('operario') ?? false) && $user->empleado?->especialidad === 'vinilero';
-    }
 }

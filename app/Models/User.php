@@ -30,6 +30,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
     protected $fillable = [
         'email',
         'password',
+        'email_verified_at',
     ];
 
     /**
@@ -72,7 +73,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasName
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasAnyRole(['administrador', 'jefe_planta', 'jefe_ssoma', 'jefe_proyectos', 'almacen', 'despacho', 'operario']);
+        return $this->hasAnyRole(['administrador', 'jefe_planta', 'jefe_ssoma', 'jefe_proyectos', 'almacen', 'despacho', 'acabados', 'operario']);
     }
 
     public function getFilamentName(): string

@@ -120,6 +120,7 @@ class EmpleadoResource extends Resource
                         'supervisor' => 'Supervisor',
                         'almacen' => 'Almacén',
                         'despacho' => 'Despacho',
+                        'acabados' => 'Acabados',
                         'operario' => 'Operario',
                     ])
                     ->nullable()
@@ -142,6 +143,10 @@ class EmpleadoResource extends Resource
             if ($user) {
                 if ($email) {
                     $user->email = $email;
+                    // Un empleado dado de alta por un admin no necesita
+                    // verificar su correo (ese flujo es para registro
+                    // público) — si nunca quedó marcado, se marca ahora.
+                    $user->email_verified_at ??= now();
                 }
 
                 if ($password) {
@@ -159,6 +164,7 @@ class EmpleadoResource extends Resource
             $user = User::create([
                 'email' => $email,
                 'password' => $password,
+                'email_verified_at' => now(),
             ]);
 
             if ($rol) {
@@ -212,6 +218,7 @@ class EmpleadoResource extends Resource
                         'supervisor' => 'Supervisor',
                         'almacen' => 'Almacén',
                         'despacho' => 'Despacho',
+                        'acabados' => 'Acabados',
                         'operario' => 'Operario',
                         default => $state,
                     })
@@ -224,6 +231,7 @@ class EmpleadoResource extends Resource
                         'supervisor' => 'warning',
                         'almacen' => 'warning',
                         'despacho' => 'warning',
+                        'acabados' => 'warning',
                         'operario' => 'success',
                         default => 'gray',
                     })
